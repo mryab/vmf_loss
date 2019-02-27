@@ -21,10 +21,6 @@ for pair in lg_pairs:
         with open(mypath + file, 'r') as rd:
             with open(mypath + 'parsed/' + file, 'w') as wr:
                 for line in rd:
-                    if line.startswith('<desc'):
-                        wr.write(line[len('<description>') : -len('</description>\n')] + '\n')
-                    if line.startswith('<ti'):
-                        wr.write(line[len('<title>') : -len('</title>\n')] + '\n')
                     if line.startswith('<seg'):
                         wr.write(line[line.find('">') + 2 : -len('</seg>\n')] + '\n')
                     if line[0] != '<':
