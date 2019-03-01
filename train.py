@@ -95,8 +95,10 @@ def main(args, init_distributed=False):
     src_lang, tgt_lang = args.dataset.split('-')
     if args.token_type == 'word':
         path = f'{args.dataset}/truecased/'
+        vocab_size = 50000
     else:
-        path = f'{args.dataset}/truecased_bpe/'
+        path = f'{args.dataset}/bpe/'
+        vocab_size = 50000
     train, val, test = TranslationDataset.splits((src_lang, tgt_lang),
                                                  (src_field, tgt_field),
                                                  path=path,
@@ -109,13 +111,12 @@ def main(args, init_distributed=False):
     random.seed(args.device_id)
     torch.manual_seed(args.device_id)
     torch.cuda.set_device(args.device_id)
-    src_field.build_vocab(train, max_size=50000)
-    tgt_field.build_vocab(train, max_size=50000)
+    src_field.build_vocab(train, max_size=vocab_size)
+    tgt_field.build_vocab(train, max_size=vocab_size)
 
-    batch_size = 32
-    train_iter = BucketIterator(train, batch_size=batch_size,
+    train_iter = BucketIterator(train, batch_size=args.batch_size,
                                 sort_key=lambda x: (len(x.src), len(x.trg)), sort_within_batch=True)
-    val_iter = BucketIterator(val, batch_size=batch_size, train=False,
+    val_iter = BucketIterator(val, batch_size=args.batch_size, train=False,
                               sort_key=lambda x: (len(x.src), len(x.trg)), sort_within_batch=True)
 
     model = Model(1024, 512, len(tgt_field.vocab), src_field, tgt_field, 0.2).cuda()
