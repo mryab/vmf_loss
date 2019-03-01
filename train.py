@@ -17,12 +17,13 @@ def filter_pred(example):
 
 
 def train_dummy(model, args, criterion, optimizer):
-    dummy_src = torch.zeros((args.batch_size, 110), dtype=torch.long).cuda()
+    device = torch.device('cuda', args.device_id)
+    dummy_src = torch.zeros((args.batch_size, 110), dtype=torch.long, device=device)
     dummy_src[:, -1] = 3
-    dummy_src_lengths = torch.full((args.batch_size,), 110, dtype=torch.long).cuda()
-    dummy_dst = torch.zeros((args.batch_size, 110), dtype=torch.long).cuda()
+    dummy_src_lengths = torch.full((args.batch_size,), 110, dtype=torch.long, device=device)
+    dummy_dst = torch.zeros((args.batch_size, 110), dtype=torch.long, device=device)
     dummy_dst[:, -1] = 3
-    outputs_voc = model(dummy_src, dummy_src_lengths, dummy_dst[:, :-1]).transpose(1, 2)
+    outputs_voc = model(dummy_src, dummy_src_lengths, dummy_dst[:, :-1])
     loss = criterion(outputs_voc, dummy_dst[:, 1:])
     loss.backward()
     optimizer.zero_grad()
@@ -108,15 +109,17 @@ def train(args, init_distributed=False):
 
     random.seed(args.device_id)
     torch.manual_seed(args.device_id)
-    torch.cuda.set_device(args.device_id)
-    src_field.build_vocab(train, max_size=vocab_size)
-    tgt_field.build_vocab(train, max_size=vocab_size)
+    device = torch.device('cuda', args.device_id)
+    torch.cuda.set_device(device)
+    src_field.build_vocab(train_dataset, max_size=vocab_size)
+    tgt_field.build_vocab(train_dataset, max_size=vocab_size)
 
     train_iter = BucketIterator(
         train_dataset,
         batch_size=args.batch_size,
         sort_key=lambda x: interleave_keys(len(x.src), len(x.trg)),
         sort_within_batch=True,
+        device=device
     )
     val_iter = BucketIterator(
         val_dataset,
@@ -124,11 +127,12 @@ def train(args, init_distributed=False):
         train=False,
         sort_key=lambda x: interleave_keys(len(x.src), len(x.trg)),
         sort_within_batch=True,
+        device=device
     )
 
-    model = Model(1024, 512, len(tgt_field.vocab), src_field, tgt_field, 0.2).cuda()
+    model = Model(1024, 512, len(tgt_field.vocab), src_field, tgt_field, 0.2).to(device)
     # TODO change criterion (and output dim) depending on args
-    criterion = nn.CrossEntropyLoss(ignore_index=1).cuda()
+    criterion = nn.CrossEntropyLoss(ignore_index=1).to(device)
     if init_distributed:
         torch.distributed.init_process_group(
             backend='nccl',
