@@ -11,22 +11,31 @@ class StackedLSTMCell(nn.Module):
             self.layers.append(nn.LSTMCell(input_size, rnn_size))
             input_size = rnn_size
 
-    def forward(self, input, hidden):
+    def forward(self, input_, hidden):
         h_0, c_0 = hidden
         for i, layer in enumerate(self.layers):
-            h_1_i, c_1_i = layer(input, (h_0[i], c_0[i]))
-            input = self.dropout(h_1_i)
+            h_1_i, c_1_i = layer(input_, (h_0[i], c_0[i]))
+            input_ = self.dropout(h_1_i)
             h_0[i] = h_1_i
             c_0[i] = c_1_i
-        return input, (h_0, c_0)
+        return input_, (h_0, c_0)
 
 
 class Encoder(nn.Module):
     def __init__(self, hid_dim, inp_emb_dim, inp_voc, dropout):
         super().__init__()
-        self.input_emb = nn.Embedding(len(inp_voc.vocab), inp_emb_dim,
-                                      padding_idx=inp_voc.vocab.stoi[inp_voc.pad_token])
-        self.encoder = nn.LSTM(inp_emb_dim, hid_dim // 2, num_layers=2, bidirectional=True, dropout=dropout)
+        self.input_emb = nn.Embedding(
+            len(inp_voc.vocab),
+            inp_emb_dim,
+            padding_idx=inp_voc.vocab.stoi[inp_voc.pad_token],
+        )
+        self.encoder = nn.LSTM(
+            inp_emb_dim,
+            hid_dim // 2,
+            num_layers=2,
+            bidirectional=True,
+            dropout=dropout,
+        )
         self.hid_dim = hid_dim // 2
 
     def forward(self, src_tokens, src_lengths):
@@ -50,10 +59,8 @@ class AttentionLayer(nn.Module):
         super().__init__()
         self.output_proj = nn.Linear(2 * output_embed_dim, output_embed_dim, bias=bias)
 
-    def forward(self, input, source_hids, encoder_padding_mask):
-        # input: bsz x input_embed_dim
-        # source_hids: srclen x bsz x output_embed_dim
-        x = input
+    def forward(self, input_, source_hids, encoder_padding_mask):
+        x = input_
         attn_scores = (source_hids * x.unsqueeze(0)).sum(dim=2)
 
         if encoder_padding_mask is not None:
@@ -62,11 +69,10 @@ class AttentionLayer(nn.Module):
                 float('-inf')
             ).type_as(attn_scores)
 
-        attn_scores = torch.softmax(attn_scores, dim=0)  # srclen x bsz
+        attn_scores = torch.softmax(attn_scores, dim=0)
 
-        # sum weighted sources
         x = (attn_scores.unsqueeze(2) * source_hids).sum(dim=0)
-        x = torch.tanh(self.output_proj(torch.cat((x, input), dim=1)))
+        x = torch.tanh(self.output_proj(torch.cat((x, input_), dim=1)))
         return x, attn_scores
 
 
@@ -74,8 +80,11 @@ class Decoder(nn.Module):
     def __init__(self, inp_emb_dim, hid_dim, out_dim, out_voc, dropout):
         super().__init__()
         self.decoder = StackedLSTMCell(inp_emb_dim + hid_dim, hid_dim, dropout)
-        self.output_emb = nn.Embedding(len(out_voc.vocab), inp_emb_dim,
-                                       padding_idx=out_voc.vocab.stoi[out_voc.pad_token])
+        self.output_emb = nn.Embedding(
+            len(out_voc.vocab),
+            inp_emb_dim,
+            padding_idx=out_voc.vocab.stoi[out_voc.pad_token],
+        )
         self.attn = AttentionLayer(hid_dim)
         self.pred_proj = nn.Linear(hid_dim, out_dim)
         self.dropout = nn.Dropout(dropout)
