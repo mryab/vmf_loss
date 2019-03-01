@@ -96,7 +96,6 @@ def train(args, init_distributed=False):
         init_token='<BOS>',
         eos_token='<EOS>',
     )
-    src_lang, tgt_lang = args.dataset.split('-')
     if args.token_type == 'word':
         path_src = path_dst = pathlib.Path('truecased')
         vocab_size = 50000
@@ -107,14 +106,16 @@ def train(args, init_distributed=False):
     else:
         path_src = path_dst = pathlib.Path('bpe')
         vocab_size = 50000  # should be 100k for bpe, but some corpora don't have this many words
-    train_dataset, val_dataset = TranslationDataset.splits(
-        (path_src / src_lang, path_dst / tgt_lang),
-        (src_field, tgt_field),
-        path=args.dataset,
-        train=f'train_dataset.{args.dataset}.',
-        validation='dev.',
-        test=None,
-        filter_pred=filter_pred,
+    path_field_pairs = zip((path_src, path_dst), args.dataset.split('-'))
+    train_dataset = TranslationDataset(
+        args.dataset + '/',
+        exts=map(lambda x: str(x[0] / f'train.{args.dataset}.{x[1]}'), path_field_pairs),
+        fields=(src_field, tgt_field)
+    )
+    val_dataset = TranslationDataset(
+        args.dataset + '/',
+        exts=map(lambda x: str(x[0] / f'dev.{x[1]}'), path_field_pairs),
+        fields=(src_field, tgt_field)
     )
 
     random.seed(args.device_id)
