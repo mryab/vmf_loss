@@ -5,7 +5,7 @@ import random
 
 import torch
 import torch.nn as nn
-from torchtext.data import BucketIterator, Field
+from torchtext.data import BucketIterator, Field, interleave_keys
 from torchtext.datasets import TranslationDataset
 from tqdm import tqdm
 
@@ -44,7 +44,6 @@ def train_epoch(model, train_iter, optimizer, criterion):
     model.train()
     pbar = tqdm(train_iter)
     total_loss = 0
-    count = 0
     for batch in pbar:
         loss = compute_loss(model, batch, criterion)
         optimizer.zero_grad()
@@ -54,23 +53,21 @@ def train_epoch(model, train_iter, optimizer, criterion):
         pbar.set_postfix(loss=loss)
         torch.cuda.empty_cache()
         total_loss += loss
-        count += 1
-    print(f'Train loss: {total_loss / count:.5f}')
+    print(f'Train loss: {total_loss / len(train_iter):.5f}')
 
 
 def validate(model, val_iter, criterion):
     model.eval()
+    pbar = tqdm(val_iter)
+    total_loss = 0
     with torch.no_grad():
-        pbar = tqdm(val_iter)
-        total_loss = 0
-        count = 0
         for batch in pbar:
             loss = compute_loss(model, batch, criterion).item()
             total_loss += loss
-            count += 1
             pbar.set_postfix(loss=loss)
-    print(f'Validation loss: {total_loss / count:.5f}')
-    return total_loss / count
+    res = total_loss / len(val_iter)
+    print(f'Validation loss: {res:.5f}')
+    return res
 
 
 def train(args, init_distributed=False):
@@ -90,24 +87,22 @@ def train(args, init_distributed=False):
     )
     src_lang, tgt_lang = args.dataset.split('-')
     if args.token_type == 'word':
-        path_src = pathlib.Path('truecased')
-        path_dst = pathlib.Path('truecased')
+        path_src = path_dst = pathlib.Path('truecased')
         vocab_size = 50000
     elif args.token_type == 'word_bpe':
         path_src = pathlib.Path('truecased')
         path_dst = pathlib.Path('bpe')
         vocab_size = 50000
     else:
-        path_src = pathlib.Path('bpe')
-        path_dst = pathlib.Path('bpe')
+        path_src = path_dst = pathlib.Path('bpe')
         vocab_size = 50000  # should be 100k for bpe, but some corpora don't have this many words
-    train, val, test = TranslationDataset.splits(
+    train_dataset, val_dataset = TranslationDataset.splits(
         (path_src / src_lang, path_dst / tgt_lang),
         (src_field, tgt_field),
         path=args.dataset,
-        train=f'train.{args.dataset}.',
+        train=f'train_dataset.{args.dataset}.',
         validation='dev.',
-        test='test.',
+        test=None,
         filter_pred=filter_pred,
     )
 
@@ -118,16 +113,16 @@ def train(args, init_distributed=False):
     tgt_field.build_vocab(train, max_size=vocab_size)
 
     train_iter = BucketIterator(
-        train,
+        train_dataset,
         batch_size=args.batch_size,
-        sort_key=lambda x: (len(x.src), len(x.trg)),
+        sort_key=lambda x: interleave_keys(len(x.src), len(x.trg)),
         sort_within_batch=True,
     )
     val_iter = BucketIterator(
-        val,
+        val_dataset,
         batch_size=args.batch_size,
         train=False,
-        sort_key=lambda x: (len(x.src), len(x.trg)),
+        sort_key=lambda x: interleave_keys(len(x.src), len(x.trg)),
         sort_within_batch=True,
     )
 
