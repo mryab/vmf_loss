@@ -1,32 +1,31 @@
-#!/bin/bash
-#parsing
+#!/usr/bin/env bash
 python3 parse.py
 
-if [ ! -d ./de-en/tokenized ]; then
+if [[ ! -d ./de-en/tokenized ]]; then
   mkdir -p ./de-en/tokenized;
 fi
-if [ ! -d ./en-fr/tokenized ]; then
+if [[ ! -d ./en-fr/tokenized ]]; then
   mkdir -p ./en-fr/tokenized;
 fi
-if [ ! -d ./fr-en/tokenized ]; then
+if [[ ! -d ./fr-en/tokenized ]]; then
   mkdir -p ./fr-en/tokenized;
 fi
 
-if [ ! -d ./de-en/truecased ]; then
+if [[ ! -d ./de-en/truecased ]]; then
   mkdir -p ./de-en/truecased;
 fi
-if [ ! -d ./fr-en/truecased ]; then
+if [[ ! -d ./fr-en/truecased ]]; then
   mkdir -p ./fr-en/truecased;
 fi
-if [ ! -d ./en-fr/truecased ]; then
+if [[ ! -d ./en-fr/truecased ]]; then
   mkdir -p ./en-fr/truecased;
 fi
 
 pair_lgs="de en fr"
 
 
-for lg1 in $pair_lgs; do
-    for lg2 in $pair_lgs; do
+for lg1 in ${pair_lgs}; do
+    for lg2 in ${pair_lgs}; do
         #tokenizing
         cat "$lg1-$lg2/parsed/IWSLT16.TED.tst2013.$lg1-$lg2.$lg1.xml" "$lg1-$lg2/parsed/IWSLT16.TED.tst2014.$lg1-$lg2.$lg1.xml" > "$lg1-$lg2/parsed/dev.$lg1" || continue
         sacremoses tokenize -j 4 < "$lg1-$lg2/parsed/dev.$lg1" > "$lg1-$lg2/tokenized/dev.$lg1"

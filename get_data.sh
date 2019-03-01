@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 DEEN_URL="https://wit3.fbk.eu/archive/2016-01//texts/de/en/de-en.tgz"
 FREN_URL="https://wit3.fbk.eu/archive/2016-01//texts/fr/en/fr-en.tgz"
 ENFR_URL="https://wit3.fbk.eu/archive/2016-01//texts/en/fr/en-fr.tgz"
