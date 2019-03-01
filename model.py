@@ -103,8 +103,8 @@ class Decoder(nn.Module):
             out = self.dropout(out)
             decoder_outputs.append(out)
             inp_feed = out
-        res = torch.stack(decoder_outputs).transpose(1, 0)
-        res = self.pred_proj(res)
+        res = torch.stack(decoder_outputs).transpose(1, 0)  # bsz x seqlen x hid_dim
+        res = self.pred_proj(res).transpose(1, 2)  # bsz x hid_dim x seqlen
         return res
 
 

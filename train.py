@@ -28,19 +28,16 @@ def train_dummy(model, args, criterion, optimizer):
     optimizer.zero_grad()
 
 
-def train_step(model, batch, optimizer, criterion):
+def compute_loss(model, batch, criterion):
     src, src_lengths = batch.src
     dst, dst_lengths = batch.trg
-    src = src.cuda()
-    dst = dst.cuda()
-    src_lengths = src_lengths.cuda()
-    outputs_voc = model(src, src_lengths, dst[:, :-1]).transpose(1, 2)
+    src = src
+    dst = dst
+    src_lengths = src_lengths
+    outputs_voc = model(src, src_lengths, dst[:, :-1])
     target = dst[:, 1:]
     loss = criterion(outputs_voc, target)
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
-    return loss.item()
+    return loss
 
 
 def train_epoch(model, train_iter, optimizer, criterion):
@@ -49,7 +46,11 @@ def train_epoch(model, train_iter, optimizer, criterion):
     total_loss = 0
     count = 0
     for batch in pbar:
-        loss = train_step(model, batch, optimizer, criterion)
+        loss = compute_loss(model, batch, criterion)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        loss = loss.item()
         pbar.set_postfix(loss=loss)
         torch.cuda.empty_cache()
         total_loss += loss
@@ -64,14 +65,7 @@ def validate(model, val_iter, criterion):
         total_loss = 0
         count = 0
         for batch in pbar:
-            src, src_lengths = batch.src
-            dst, dst_lengths = batch.trg
-            src = src.cuda()
-            dst = dst.cuda()
-            src_lengths = src_lengths.cuda()
-            outputs_voc = model(src, src_lengths, dst[:, :-1]).transpose(1, 2)
-            target = dst[:, 1:]
-            loss = criterion(outputs_voc, target).item()
+            loss = compute_loss(model, batch, criterion).item()
             total_loss += loss
             count += 1
             pbar.set_postfix(loss=loss)
