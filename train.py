@@ -16,6 +16,18 @@ def filter_pred(example):
     return len(example.src) <= 100 and len(example.trg) <= 100
 
 
+def train_dummy(model, args, criterion, optimizer):
+    dummy_src = torch.zeros((args.batch_size, 110), dtype=torch.long).cuda()
+    dummy_src[:, -1] = 3
+    dummy_src_lengths = torch.full((args.batch_size,), 110, dtype=torch.long).cuda()
+    dummy_dst = torch.zeros((args.batch_size, 110), dtype=torch.long).cuda()
+    dummy_dst[:, -1] = 3
+    outputs_voc = model(dummy_src, dummy_src_lengths, dummy_dst[:, :-1]).transpose(1, 2)
+    loss = criterion(outputs_voc, dummy_dst[:, 1:])
+    loss.backward()
+    optimizer.zero_grad()
+
+
 def train_step(model, batch, optimizer, criterion):
     src, src_lengths = batch.src
     dst, dst_lengths = batch.trg
@@ -117,7 +129,6 @@ def main(args, init_distributed=False):
     if args.distributed_rank == 0:
         print('Starting training')
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0002)
-    best_val_loss = validate(model, val_iter, criterion)
     path = pathlib.Path('checkpoints') / args.dataset / args.token_type / args.loss
     os.makedirs(path, exist_ok=True)
     init_epoch = 0
@@ -126,6 +137,8 @@ def main(args, init_distributed=False):
         model.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optim'])
         init_epoch = checkpoint['epoch']
+    train_dummy(model, args, criterion, optimizer)
+    best_val_loss = validate(model, val_iter, criterion)
     for epoch in range(init_epoch, 15):
         train_epoch(model, train_iter, optimizer, criterion)
         val_loss = validate(model, val_iter, criterion)
@@ -133,7 +146,7 @@ def main(args, init_distributed=False):
             checkpoint = {
                 'model': model.state_dict(),
                 'optim': optimizer.state_dict(),
-                'epoch': epoch + 1
+                'epoch': epoch + 1,
             }
             torch.save(checkpoint, path / f'checkpoint_{epoch}.pt')
             if val_loss < best_val_loss:
@@ -154,7 +167,8 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', choices=['de-en', 'en-fr', 'fr-en'], required=True)
     parser.add_argument('--token-type', choices=['word', 'bpe'], required=True)
     parser.add_argument('--loss', choices=['xent'], required=True)
-    parser.add_argument('--device-id', default=0)
+    parser.add_argument('--batch-size', default=64, type=int)
+    parser.add_argument('--device-id', default=0, type=int)
     num_gpus = torch.cuda.device_count()
     args = parser.parse_args()
     if num_gpus > 1:
