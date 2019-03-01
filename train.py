@@ -34,6 +34,7 @@ def train_step(model, batch, optimizer, criterion):
 
 
 def train_epoch(model, train_iter, optimizer, criterion):
+    model.train()
     pbar = tqdm(train_iter)
     for batch in pbar:
         loss = train_step(model, batch, optimizer, criterion)
@@ -41,6 +42,7 @@ def train_epoch(model, train_iter, optimizer, criterion):
 
 
 def validate(model, val_iter, criterion):
+    model.eval()
     with torch.no_grad():
         pbar = tqdm(val_iter)
         total_loss = 0
@@ -101,7 +103,7 @@ def main(args, init_distributed=False):
     val_iter = BucketIterator(val, batch_size=batch_size, train=False,
                               sort_key=lambda x: (len(x.src), len(x.trg)), sort_within_batch=True)
 
-    model = Model(1024, 512, len(tgt_field.vocab), src_field, tgt_field).cuda()
+    model = Model(1024, 512, len(tgt_field.vocab), src_field, tgt_field, 0.2).cuda()
     # TODO change criterion (and output dim) depending on args
     criterion = nn.CrossEntropyLoss(ignore_index=1).cuda()
     if init_distributed:
