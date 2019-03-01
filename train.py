@@ -113,7 +113,6 @@ def train(args, init_distributed=False):
         exts=map(lambda x: str(x[0] / f'train.{args.dataset}.{x[1]}'), path_field_pairs),
         fields=(src_field, tgt_field)
     )
-    path_field_pairs = zip((path_src, path_dst), args.dataset.split('-'))
     val_dataset = TranslationDataset(
         args.dataset + '/',
         exts=map(lambda x: str(x[0] / f'dev.{x[1]}'), path_field_pairs),
@@ -209,7 +208,7 @@ def train(args, init_distributed=False):
                 'epoch': epoch + 1,
                 'best_val_loss': best_val_loss,
             }
-            torch.save(checkpoint, path / 'checkpoint_{epoch}.pt')
+            torch.save(checkpoint, path / f'checkpoint_{epoch}.pt')
             if val_loss == best_val_loss:
                 torch.save(checkpoint, path / 'checkpoint_best.pt')
             torch.save(checkpoint, path / 'checkpoint_last.pt')
