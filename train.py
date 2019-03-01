@@ -156,11 +156,11 @@ def train(args, init_distributed=False):
     model = Model(1024, 512, out_dim, src_field, tgt_field, 0.2).to(device)
     # TODO change criterion (and output dim) depending on args; inp_dim for tied embeddings too
     if args.loss == 'xent':
-        criterion = nn.CrossEntropyLoss(ignore_index=1).cuda()
+        criterion = nn.CrossEntropyLoss(ignore_index=1).to(device)
     if args.loss == 'l2':
-        criterion = EmbeddingLoss(tgt_field, out_dim, L2Loss).cuda()
+        criterion = EmbeddingLoss(tgt_field, out_dim, L2Loss).to(device)
     if args.loss == 'cosine':
-        criterion = EmbeddingLoss(tgt_field, out_dim, CosineLoss).cuda()
+        criterion = EmbeddingLoss(tgt_field, out_dim, CosineLoss).to(device)
 
     if init_distributed:
         torch.distributed.init_process_group(
