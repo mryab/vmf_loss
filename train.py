@@ -34,10 +34,10 @@ def train_step(model, batch, optimizer, criterion):
     src = src.cuda()
     dst = dst.cuda()
     src_lengths = src_lengths.cuda()
-    optimizer.zero_grad()
     outputs_voc = model(src, src_lengths, dst[:, :-1]).transpose(1, 2)
     target = dst[:, 1:]
     loss = criterion(outputs_voc, target)
+    optimizer.zero_grad()
     loss.backward()
     optimizer.step()
     return loss.item()
@@ -46,9 +46,15 @@ def train_step(model, batch, optimizer, criterion):
 def train_epoch(model, train_iter, optimizer, criterion):
     model.train()
     pbar = tqdm(train_iter)
+    total_loss = 0
+    count = 0
     for batch in pbar:
         loss = train_step(model, batch, optimizer, criterion)
         pbar.set_postfix(loss=loss)
+        torch.cuda.empty_cache()
+        total_loss += loss
+        count += 1
+    print(total_loss / count)
 
 
 def validate(model, val_iter, criterion):
@@ -70,7 +76,6 @@ def validate(model, val_iter, criterion):
             count += 1
             pbar.set_postfix(loss=loss)
     print(total_loss / count)
-    gc.collect()
     return total_loss / count
 
 
