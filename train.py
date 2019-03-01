@@ -140,19 +140,20 @@ def train(args, init_distributed=False):
         sort_within_batch=True,
         device=device
     )
-    # assign pretrained embeddings to trg_field
-    vectors = Vectors(name=args.emb_type + '.' + tgt_lang, cache=args.emb_dir)
-    mean = torch.zeros((vectors.dim,))
-    num = 0
-    for word, ind in vectors.stoi.items():
-        if tgt_field.vocab.stoi.get(word) is None:
-            mean += vectors.vectors[ind]
-            num += 1
-    mean /= num
-    tgt_field.vocab.set_vectors(vectors.stoi, vectors.vectors, vectors.dim, unk_init=MeanInit(mean))
-
-    out_dim = len(tgt_field.vocab) if args.emb_type is None else vectors.dim
-    model = Model(1024, 512, out_dim, src_field, tgt_field, 0.2).cuda()
+    out_dim = len(tgt_field.vocab)
+    if args.loss != 'xent':
+        # assign pretrained embeddings to trg_field
+        vectors = Vectors(name=args.emb_type + '.' + tgt_lang, cache=args.emb_dir)
+        mean = torch.zeros((vectors.dim,))
+        num = 0
+        for word, ind in vectors.stoi.items():
+            if tgt_field.vocab.stoi.get(word) is None:
+                mean += vectors.vectors[ind]
+                num += 1
+        mean /= num
+        tgt_field.vocab.set_vectors(vectors.stoi, vectors.vectors, vectors.dim, unk_init=MeanInit(mean))
+        out_dim = vectors.dim
+    model = Model(1024, 512, out_dim, src_field, tgt_field, 0.2).to(device)
     # TODO change criterion (and output dim) depending on args; inp_dim for tied embeddings too
     if args.loss == 'xent':
         criterion = nn.CrossEntropyLoss(ignore_index=1).cuda()
