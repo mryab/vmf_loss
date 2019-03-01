@@ -13,7 +13,7 @@ class EmbeddingLoss(nn.Module):
 
     
 def L2Loss(pred, target):
-    return ((pred - target) ** 2).mean(dim=0)
+    return ((pred - self.tgt_embedding(target)) ** 2).mean(dim=0)
 
 def CosineLoss(pred, target):
-    return 1 - cosine_similarity(pred, target, dim=-1, eps=1e-8)
+    return 1 - cosine_similarity(pred, self.tgt_embedding(target), dim=-1, eps=1e-8)
