@@ -28,6 +28,7 @@ def filter_pred(example):
 
 def train_dummy(model, args, criterion, optimizer):
     device = torch.device('cuda', args.device_id)
+    model.train()
     dummy_src = torch.zeros((args.batch_size, 110), dtype=torch.long, device=device)
     dummy_src[:, -1] = 3
     dummy_src_lengths = torch.full((args.batch_size,), 110, dtype=torch.long, device=device)
@@ -112,6 +113,7 @@ def train(args, init_distributed=False):
         exts=map(lambda x: str(x[0] / f'train.{args.dataset}.{x[1]}'), path_field_pairs),
         fields=(src_field, tgt_field)
     )
+    path_field_pairs = zip((path_src, path_dst), args.dataset.split('-'))
     val_dataset = TranslationDataset(
         args.dataset + '/',
         exts=map(lambda x: str(x[0] / f'dev.{x[1]}'), path_field_pairs),
@@ -128,7 +130,7 @@ def train(args, init_distributed=False):
     train_iter = BucketIterator(
         train_dataset,
         batch_size=args.batch_size,
-        sort_key=lambda x: interleave_keys(len(x.src), len(x.trg)),
+        sort_key=lambda x: (len(x.src), len(x.trg)),
         sort_within_batch=True,
         device=device
     )
@@ -136,13 +138,14 @@ def train(args, init_distributed=False):
         val_dataset,
         batch_size=args.batch_size,
         train=False,
-        sort_key=lambda x: interleave_keys(len(x.src), len(x.trg)),
+        sort_key=lambda x: (len(x.src), len(x.trg)),
         sort_within_batch=True,
         device=device
     )
     out_dim = len(tgt_field.vocab)
     if args.loss != 'xent':
         # assign pretrained embeddings to trg_field
+        tgt_lang = args.dataset.split('-')[1]
         vectors = Vectors(name=args.emb_type + '.' + tgt_lang, cache=args.emb_dir)
         mean = torch.zeros((vectors.dim,))
         num = 0
@@ -151,16 +154,21 @@ def train(args, init_distributed=False):
                 mean += vectors.vectors[ind]
                 num += 1
         mean /= num
-        tgt_field.vocab.set_vectors(vectors.stoi, vectors.vectors, vectors.dim, unk_init=MeanInit(mean))
+        tgt_field.vocab.set_vectors(
+            vectors.stoi,
+            vectors.vectors,
+            vectors.dim,
+            unk_init=MeanInit(mean))
+        tgt_field.vocab.vectors[tgt_field.vocab.stoi['<EOS>']].zero_()
         out_dim = vectors.dim
     model = Model(1024, 512, out_dim, src_field, tgt_field, 0.2).to(device)
     # TODO change criterion (and output dim) depending on args; inp_dim for tied embeddings too
     if args.loss == 'xent':
         criterion = nn.CrossEntropyLoss(ignore_index=1).to(device)
     if args.loss == 'l2':
-        criterion = EmbeddingLoss(tgt_field, out_dim, L2Loss).to(device)
+        criterion = L2Loss(tgt_field, out_dim).to(device)
     if args.loss == 'cosine':
-        criterion = EmbeddingLoss(tgt_field, out_dim, CosineLoss).to(device)
+        criterion = CosineLoss(tgt_field, out_dim).to(device)
 
     if init_distributed:
         torch.distributed.init_process_group(
@@ -201,7 +209,7 @@ def train(args, init_distributed=False):
                 'epoch': epoch + 1,
                 'best_val_loss': best_val_loss,
             }
-            torch.save(checkpoint, path / f'checkpoint_{epoch}.pt')
+            torch.save(checkpoint, path / 'checkpoint_{epoch}.pt')
             if val_loss == best_val_loss:
                 torch.save(checkpoint, path / 'checkpoint_best.pt')
             torch.save(checkpoint, path / 'checkpoint_last.pt')
