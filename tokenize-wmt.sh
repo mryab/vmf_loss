@@ -21,4 +21,6 @@ for lg in $lgs; do
     done
     
     rm -rf "./wmt-$lg/tok"
+    cat "./wmt-$lg/truecased/*" > "./corpus.$lg"
+    rm -rf "./wmt-$lg/ruecased"
 done

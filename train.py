@@ -7,9 +7,19 @@ import torch
 import torch.nn as nn
 from torchtext.data import BucketIterator, Field, interleave_keys
 from torchtext.datasets import TranslationDataset
+from torchtext.vocab import Vectors
 from tqdm import tqdm
 
 from model import Model
+from loss import *
+
+
+class MeanInit:
+    def __init__(self, init_vector):
+        self.init_vector = init_vector
+
+    def __call__(self, tensor):
+        return tensor.zero_() + self.init_vector
 
 
 def filter_pred(example):
@@ -129,10 +139,27 @@ def train(args, init_distributed=False):
         sort_within_batch=True,
         device=device
     )
+    # assign pretrained embeddings to trg_field
+    vectors = Vectors(name=args.emb_type + '.' + tgt_lang, cache=args.emb_dir)
+    mean = torch.zeros((vectors.dim,))
+    num = 0
+    for word, ind in vectors.stoi.items():
+        if tgt_field.vocab.stoi.get(word) is None:
+            mean += vectors.vectors[ind]
+            num += 1
+    mean /= num
+    tgt_field.vocab.set_vectors(vectors.stoi, vectors.vectors, vectors.dim, unk_init=MeanInit(mean))
 
-    model = Model(1024, 512, len(tgt_field.vocab), src_field, tgt_field, 0.2).to(device)
-    # TODO change criterion (and output dim) depending on args
-    criterion = nn.CrossEntropyLoss(ignore_index=1).to(device)
+    out_dim = len(tgt_field.vocab) if args.emb_type is None else vectors.dim
+    model = Model(1024, 512, out_dim, src_field, tgt_field, 0.2).cuda()
+    # TODO change criterion (and output dim) depending on args; inp_dim for tied embeddings too
+    if args.loss == 'xent':
+        criterion = nn.CrossEntropyLoss(ignore_index=1).cuda()
+    if args.loss == 'l2':
+        criterion = EmbeddingLoss(tgt_field, out_dim, L2Loss).cuda()
+    if args.loss == 'cosine':
+        criterion = EmbeddingLoss(tgt_field, out_dim, CosineLoss).cuda()
+
     if init_distributed:
         torch.distributed.init_process_group(
             backend='nccl',
@@ -189,8 +216,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', choices=['de-en', 'en-fr', 'fr-en'], required=True)
     parser.add_argument('--token-type', choices=['word', 'bpe', 'word_bpe'], required=True)
-    parser.add_argument('--loss', choices=['xent'], required=True)
+    parser.add_argument('--loss', choices=['xent', 'l2', 'cosine'], required=True)
     parser.add_argument('--batch-size', default=64, type=int)
+    parser.add_argument('--emb-type', choices=['w2v', 'fasttext'], required=False)
+    parser.add_argument('--emb-dir', type=str, required=False)
     parser.add_argument('--device-id', default=0, type=int)
     num_gpus = torch.cuda.device_count()
     args = parser.parse_args()
