@@ -3,9 +3,9 @@ import torch.nn as nn
 from torch.nn.functional import cosine_similarity
 
 class EmbeddingLoss(nn.Module):
-    def __init__(self, tgt_voc, loss):
+    def __init__(self, tgt_voc, emb_dim, loss):
         super(EmbeddingLoss, self).__init__()
-        self.tgt_embedding = nn.Embedding(len(tgt_voc.vocab), tgt_voc.vocab.vectors.dim).from_pretrained(tgt_voc.vocab.vectors)
+        self.tgt_embedding = nn.Embedding(len(tgt_voc.vocab), emb_dim).from_pretrained(tgt_voc.vocab.vectors)
         self.loss = loss
         
     def forward(self, preds, target):
