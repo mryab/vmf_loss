@@ -1,17 +1,15 @@
+import argparse
+import os
+import pathlib
 import random
 
 import torch
 import torch.nn as nn
 from torchtext.data import BucketIterator, Field
 from torchtext.datasets import TranslationDataset
-
 from tqdm import tqdm
-from model import Model
 
-import argparse
-import os
-import pathlib
-import gc
+from model import Model
 
 
 def filter_pred(example):
