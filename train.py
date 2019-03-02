@@ -149,16 +149,21 @@ def train(args):
                 mean += vectors.vectors[ind]
                 num += 1
         mean /= num
-        tgt_field.vocab.set_vectors(vectors.stoi, vectors.vectors, vectors.dim, unk_init=MeanInit(mean))
+        tgt_field.vocab.set_vectors(
+            vectors.stoi,
+            vectors.vectors,
+            vectors.dim,
+            unk_init=MeanInit(mean))
+        tgt_field.vocab.vectors[tgt_field.vocab.stoi['<EOS>']].zero_()
         out_dim = vectors.dim
     model = Model(1024, 512, out_dim, src_field, tgt_field, 0.2).to(device)
     # TODO change criterion (and output dim) depending on args; inp_dim for tied embeddings too
     if args.loss == 'xent':
         criterion = nn.CrossEntropyLoss(ignore_index=1).to(device)
     if args.loss == 'l2':
-        criterion = EmbeddingLoss(tgt_field, out_dim, L2Loss).to(device)
+        criterion = L2Loss(tgt_field, out_dim).to(device)
     if args.loss == 'cosine':
-        criterion = EmbeddingLoss(tgt_field, out_dim, CosineLoss).to(device)
+        criterion = CosineLoss(tgt_field, out_dim).to(device)
 
     print('Starting training')
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0002)
