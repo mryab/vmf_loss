@@ -114,6 +114,7 @@ class Model(nn.Module):
         self.encoder = Encoder(hid_dim, inp_emb_dim, inp_voc, dropout)
         self.decoder = Decoder(inp_emb_dim, hid_dim, out_dim, out_voc, dropout)
         self.pad_idx = inp_voc.vocab.stoi[inp_voc.pad_token]
+        self.out_voc = out_voc
 
     def forward(self, src_tokens, src_lengths, dst):
         src_tokens = src_tokens.transpose(0, 1)
@@ -122,3 +123,28 @@ class Model(nn.Module):
         enc_mask = src_tokens.eq(self.pad_idx)
         output = self.decoder(encoder_output, enc_h, enc_c, enc_mask, dst)
         return output
+
+    def translate_greedy(self, src_tokens, src_lengths, max_len=100):
+        src_tokens = src_tokens.transpose(0, 1)
+        enc_out, enc_h, enc_c = self.encoder(src_tokens, src_lengths)
+        enc_mask = src_tokens.eq(self.pad_idx)
+        bsz = src_tokens.size(1)
+        cur_word = torch.full((bsz,), self.out_voc.vocab.stoi[self.out_voc.init_token],
+                              device=src_tokens.device, dtype=torch.long)
+        cur_emb = self.decoder.output_emb(cur_word)
+        inp_feed = cur_emb.new_zeros(bsz, self.decoder.hid_dim)
+        decoder_hidden = ([enc_h[i] for i in range(2)], [enc_c[i] for i in range(2)])
+        decoder_outputs = []
+        attention_scores = []
+        for step in range(max_len):
+            rnn_input = torch.cat((cur_emb, inp_feed), dim=1)
+            output, decoder_hidden = self.decoder.decoder(rnn_input, decoder_hidden)
+            out, attn_scores = self.decoder.attn(output, enc_out, enc_mask)
+            inp_feed = out
+            pred_words = self.decoder.pred_proj(out).max(1)[1]
+            cur_emb = self.decoder.output_emb(pred_words)
+            decoder_outputs.append(pred_words)
+            attention_scores.append(attn_scores)
+        res = torch.stack(decoder_outputs).transpose(1, 0)
+        attn = torch.stack(attention_scores).permute(2, 0, 1)  # seq_len x nsrc x bsz -> bsz x seq_len x nsrc
+        return res, attn
