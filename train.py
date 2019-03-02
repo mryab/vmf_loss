@@ -4,8 +4,7 @@ import pathlib
 import random
 
 import torch
-import torch.nn as nn
-from torchtext.data import BucketIterator, Field, interleave_keys
+from torchtext.data import BucketIterator, Field
 from torchtext.datasets import TranslationDataset
 from torchtext.vocab import Vectors
 from tqdm import tqdm
@@ -26,29 +25,29 @@ def filter_pred(example):
     return len(example.src) <= 100 and len(example.trg) <= 100
 
 
-def train_dummy(model, args, criterion, optimizer):
-    device = torch.device('cuda', args.device_id)
-    dummy_src = torch.zeros((args.batch_size, 110), dtype=torch.long, device=device)
-    dummy_src[:, -1] = 3
-    dummy_src_lengths = torch.full((args.batch_size,), 110, dtype=torch.long, device=device)
-    dummy_dst = torch.zeros((args.batch_size, 110), dtype=torch.long, device=device)
-    dummy_dst[:, -1] = 3
+def train_dummy(model, criterion, optimizer, dummy_batch):
+    model.train()
+    dummy_src, dummy_src_lengths, dummy_dst = dummy_batch
     outputs_voc = model(dummy_src, dummy_src_lengths, dummy_dst[:, :-1])
     loss = criterion(outputs_voc, dummy_dst[:, 1:])
     loss.backward()
     optimizer.zero_grad()
 
 
-def compute_loss(model, batch, criterion):
+def compute_loss(model, batch, criterion, optimizer=None):
     src, src_lengths = batch.src
     dst, dst_lengths = batch.trg
-    src = src
-    dst = dst
-    src_lengths = src_lengths
+    src = src.cuda()
+    dst = dst.cuda()
+    src_lengths = src_lengths.cuda()
     outputs_voc = model(src, src_lengths, dst[:, :-1])
     target = dst[:, 1:]
     loss = criterion(outputs_voc, target)
-    return loss
+    if optimizer is not None:
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+    return loss.item()
 
 
 def train_epoch(model, train_iter, optimizer, criterion):
@@ -56,13 +55,9 @@ def train_epoch(model, train_iter, optimizer, criterion):
     pbar = tqdm(train_iter)
     total_loss = 0
     for batch in pbar:
-        loss = compute_loss(model, batch, criterion)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        loss = loss.item()
+        loss = compute_loss(model, batch, criterion, optimizer)
+        # torch.cuda.empty_cache()
         pbar.set_postfix(loss=loss)
-        torch.cuda.empty_cache()
         total_loss += loss
     print(f'Train loss: {total_loss / len(train_iter):.5f}')
 
@@ -73,7 +68,7 @@ def validate(model, val_iter, criterion):
     total_loss = 0
     with torch.no_grad():
         for batch in pbar:
-            loss = compute_loss(model, batch, criterion).item()
+            loss = compute_loss(model, batch, criterion)
             total_loss += loss
             pbar.set_postfix(loss=loss)
     res = total_loss / len(val_iter)
@@ -96,6 +91,7 @@ def train(args, init_distributed=False):
         init_token='<BOS>',
         eos_token='<EOS>',
     )
+    src_lang, tgt_lang = args.dataset.split('-')
     if args.token_type == 'word':
         path_src = path_dst = pathlib.Path('truecased')
         vocab_size = 50000
@@ -106,16 +102,18 @@ def train(args, init_distributed=False):
     else:
         path_src = path_dst = pathlib.Path('bpe')
         vocab_size = 50000  # should be 100k for bpe, but some corpora don't have this many words
-    path_field_pairs = zip((path_src, path_dst), args.dataset.split('-'))
+    path_field_pairs = list(zip((path_src, path_dst), (src_lang, tgt_lang)))
     train_dataset = TranslationDataset(
         args.dataset + '/',
-        exts=map(lambda x: str(x[0] / f'train.{args.dataset}.{x[1]}'), path_field_pairs),
-        fields=(src_field, tgt_field)
+        exts=list(map(lambda x: str(x[0] / f'train.{args.dataset}.{x[1]}'), path_field_pairs)),
+        fields=(src_field, tgt_field),
+        filter_pred=filter_pred
     )
     val_dataset = TranslationDataset(
         args.dataset + '/',
-        exts=map(lambda x: str(x[0] / f'dev.{x[1]}'), path_field_pairs),
-        fields=(src_field, tgt_field)
+        exts=list(map(lambda x: str(x[0] / f'dev.{x[1]}'), path_field_pairs)),
+        fields=(src_field, tgt_field),
+        filter_pred=filter_pred
     )
 
     random.seed(args.device_id)
@@ -128,17 +126,17 @@ def train(args, init_distributed=False):
     train_iter = BucketIterator(
         train_dataset,
         batch_size=args.batch_size,
-        sort_key=lambda x: interleave_keys(len(x.src), len(x.trg)),
+        sort_key=lambda x: (len(x.src), len(x.trg)),
         sort_within_batch=True,
-        device=device
+        # device=device,
     )
     val_iter = BucketIterator(
         val_dataset,
         batch_size=args.batch_size,
         train=False,
-        sort_key=lambda x: interleave_keys(len(x.src), len(x.trg)),
+        sort_key=lambda x: (len(x.src), len(x.trg)),
         sort_within_batch=True,
-        device=device
+        # device=device,
     )
     out_dim = len(tgt_field.vocab)
     if args.loss != 'xent':
@@ -179,8 +177,18 @@ def train(args, init_distributed=False):
         print('Starting training')
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0002)
     path = pathlib.Path('checkpoints') / args.dataset / args.token_type / args.loss
+    if args.loss != 'xent':
+        path /= args.emb_type
     os.makedirs(path, exist_ok=True)
     init_epoch = 0
+
+    dummy_src = torch.zeros((args.batch_size, 110), dtype=torch.long, device=device)
+    dummy_src[:, -1] = 3
+    dummy_src_lengths = torch.full((args.batch_size,), 110, dtype=torch.long, device=device)
+    dummy_dst = torch.zeros((args.batch_size, 110), dtype=torch.long, device=device)
+    dummy_dst[:, -1] = 3
+
+    train_dummy(model, criterion, optimizer, (dummy_src, dummy_src_lengths, dummy_dst))
     if os.path.exists(path / 'checkpoint_last.pt'):
         checkpoint = torch.load(path / 'checkpoint_last.pt')
         model.load_state_dict(checkpoint['model'])
@@ -189,7 +197,6 @@ def train(args, init_distributed=False):
         best_val_loss = checkpoint['best_val_loss']
     else:
         best_val_loss = validate(model, val_iter, criterion)
-    train_dummy(model, args, criterion, optimizer)
     for epoch in range(init_epoch, 15):
         train_epoch(model, train_iter, optimizer, criterion)
         val_loss = validate(model, val_iter, criterion)
