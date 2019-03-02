@@ -76,7 +76,7 @@ def validate(model, val_iter, criterion):
     return res
 
 
-def train(args, init_distributed=False):
+def train(args):
     src_field = Field(
         batch_first=True,
         include_lengths=True,
@@ -160,21 +160,7 @@ def train(args, init_distributed=False):
     if args.loss == 'cosine':
         criterion = EmbeddingLoss(tgt_field, out_dim, CosineLoss).to(device)
 
-    if init_distributed:
-        torch.distributed.init_process_group(
-            backend='nccl',
-            world_size=torch.cuda.device_count(),
-            init_method=args.distributed_init_method,
-            rank=args.distributed_rank,
-        )
-        model = torch.nn.parallel.DistributedDataParallel(
-            model,
-            device_ids=[args.device_id],
-            output_device=args.device_id,
-            broadcast_buffers=False,
-        )
-    if args.distributed_rank == 0:
-        print('Starting training')
+    print('Starting training')
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0002)
     path = pathlib.Path('checkpoints') / args.dataset / args.token_type / args.loss
     if args.loss != 'xent':
@@ -200,25 +186,17 @@ def train(args, init_distributed=False):
     for epoch in range(init_epoch, 15):
         train_epoch(model, train_iter, optimizer, criterion)
         val_loss = validate(model, val_iter, criterion)
-        if args.distributed_rank == 0:
-            best_val_loss = min(best_val_loss, val_loss)
-            checkpoint = {
-                'model': model.state_dict(),
-                'optim': optimizer.state_dict(),
-                'epoch': epoch + 1,
-                'best_val_loss': best_val_loss,
-            }
-            torch.save(checkpoint, path / f'checkpoint_{epoch}.pt')
-            if val_loss == best_val_loss:
-                torch.save(checkpoint, path / 'checkpoint_best.pt')
-            torch.save(checkpoint, path / 'checkpoint_last.pt')
-
-
-def distributed_train(i, args):
-    args.device_id = i
-    if args.distributed_rank is None:
-        args.distributed_rank = i
-    train(args, init_distributed=True)
+        best_val_loss = min(best_val_loss, val_loss)
+        checkpoint = {
+            'model': model.state_dict(),
+            'optim': optimizer.state_dict(),
+            'epoch': epoch + 1,
+            'best_val_loss': best_val_loss,
+        }
+        torch.save(checkpoint, path / f'checkpoint_{epoch}.pt')
+        if val_loss == best_val_loss:
+            torch.save(checkpoint, path / 'checkpoint_best.pt')
+        torch.save(checkpoint, path / 'checkpoint_last.pt')
 
 
 def main():
@@ -230,16 +208,8 @@ def main():
     parser.add_argument('--emb-type', choices=['w2v', 'fasttext'], required=False)
     parser.add_argument('--emb-dir', type=str, required=False)
     parser.add_argument('--device-id', default=0, type=int)
-    num_gpus = torch.cuda.device_count()
     args = parser.parse_args()
-    if num_gpus > 1:
-        port = random.randint(10000, 20000)
-        args.distributed_init_method = 'tcp://localhost:{port}'.format(port=port)
-        args.distributed_rank = None  # set based on device id
-        torch.multiprocessing.spawn(fn=distributed_train, args=(args,), nprocs=num_gpus)
-    else:
-        args.distributed_rank = 0
-        train(args, init_distributed=False)
+    train(args)
 
 
 if __name__ == '__main__':
