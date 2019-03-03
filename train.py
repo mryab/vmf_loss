@@ -211,7 +211,7 @@ def train(args):
             vectors.dim,
             unk_init=MeanInit(mean))
         tgt_field.vocab.vectors[tgt_field.vocab.stoi['<EOS>']] = torch.ones(vectors.dim)
-        tgt_field.vocab.vectors = F.normalize(tgt_field.vocab.vectors, p=2, dim=-1)
+        tgt_field.vocab.vectors = nn.functional.normalize(tgt_field.vocab.vectors, p=2, dim=-1)
         out_dim = vectors.dim
     model = Model(1024, 512, out_dim, src_field, tgt_field, 0.2).to(device)
     # TODO change criterion (and output dim) depending on args; inp_dim for tied embeddings too
@@ -276,7 +276,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', choices=['de-en', 'en-fr', 'fr-en'], required=True)
     parser.add_argument('--token-type', choices=['word', 'bpe', 'word_bpe'], required=True)
-    parser.add_argument('--loss', choices=['xent', 'l2', 'cosine', 'maxmarg', 'vmfapprox_paper', 'vmfapprox_fixed'], required=True)
+    parser.add_argument('--loss', choices=['xent', 'l2', 'cosine', 'maxmarg', 'vmfapprox_paper', 'vmfapprox_fixed'],
+                        required=True)
     parser.add_argument('--batch-size', default=64, type=int)
     parser.add_argument('--num-epoch', default=15, type=int)
     parser.add_argument('--lr', default=0.0002, type=float)

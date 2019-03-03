@@ -4,6 +4,7 @@ import pathlib
 import random
 
 import torch
+import torch.nn
 from torchtext.data import BucketIterator, Field
 from torchtext.datasets import TranslationDataset
 from torchtext.vocab import Vectors
@@ -45,14 +46,16 @@ def decode(args):
     src_lang, tgt_lang = args.dataset.split('-')
     if args.token_type == 'word':
         path_src = path_dst = pathlib.Path('truecased')
-        vocab_size = 50000
+        inp_vocab_size = out_vocab_size = 50000
     elif args.token_type == 'word_bpe':
         path_src = pathlib.Path('truecased')
         path_dst = pathlib.Path('bpe')
-        vocab_size = 50000
+        inp_vocab_size = 50000
+        out_vocab_size = 32000  # inferred from the paper
     else:
         path_src = path_dst = pathlib.Path('bpe')
-        vocab_size = 50000  # should be 100k for bpe, but some corpora don't have this many words
+        inp_vocab_size = 16000
+        out_vocab_size = 32000
     path_field_pairs = list(zip((path_src, path_dst), (src_lang, tgt_lang)))
     train_dataset = TranslationDataset(
         args.dataset + '/',
@@ -70,8 +73,8 @@ def decode(args):
     torch.manual_seed(args.device_id)
     device = torch.device('cuda', args.device_id)
     torch.cuda.set_device(device)
-    src_field.build_vocab(train_dataset, max_size=vocab_size)
-    tgt_field.build_vocab(train_dataset, max_size=vocab_size)
+    src_field.build_vocab(train_dataset, max_size=inp_vocab_size - 4)  # 4 special tokens are added automatically
+    tgt_field.build_vocab(train_dataset, max_size=out_vocab_size - 4)
 
     test_iter = BucketIterator(
         test_dataset,
@@ -94,7 +97,7 @@ def decode(args):
         mean /= num
         tgt_field.vocab.set_vectors(vectors.stoi, vectors.vectors, vectors.dim, unk_init=MeanInit(mean))
         tgt_field.vocab.vectors[tgt_field.vocab.stoi['<EOS>']] = torch.ones(vectors.dim)
-        tgt_field.vocab.vectors = F.normalize(tgt_field.vocab.vectors, p=2, dim=-1)
+        tgt_field.vocab.vectors = nn.functional.normalize(tgt_field.vocab.vectors, p=2, dim=-1)
         out_dim = vectors.dim
     model = Model(1024, 512, out_dim, src_field, tgt_field, 0.2).to(device)
     path = pathlib.Path('checkpoints') / args.dataset / args.token_type / args.loss
@@ -105,7 +108,6 @@ def decode(args):
     checkpoint = torch.load(path)
     model.load_state_dict(checkpoint['model'])
     model.eval()
-    total_unk = 0
     if args.token_type == 'word':
         word_dict = {}
         with open(f'{args.dataset}/align/dict') as f:
@@ -135,9 +137,7 @@ def decode(args):
             src_len = src_len[order]
             rev_order = sorted(range(len(order)), key=order.__getitem__)
             preds, attn = model.translate_greedy(src, src_len, max_len=150, loss_type=args.loss)
-            print(attn.sum(2))
             max_attn, alignments = attn.max(2)
-            total_unk += (preds == tgt_field.vocab.stoi[tgt_field.unk_token]).sum().item()
             preds = preds[rev_order]
             alignments = alignments[rev_order]
             words_for_alignments = src[rev_order][torch.arange(src.size(0))[:, None], alignments]
@@ -164,7 +164,6 @@ def decode(args):
             gt.append(words)
 
     print(corpus_bleu(res, [gt]))
-    print(total_unk)
 
 
 def main():
