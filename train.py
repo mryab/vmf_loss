@@ -2,8 +2,10 @@ import argparse
 import os
 import pathlib
 import random
+import time
 
 import torch
+import torch.nn as nn
 from torchtext.data import BucketIterator, Field
 from torchtext.datasets import TranslationDataset
 from torchtext.vocab import Vectors
@@ -19,6 +21,43 @@ class MeanInit:
 
     def __call__(self, tensor):
         return tensor.zero_() + self.init_vector
+
+
+class TimeMeter(object):
+
+    def __init__(self):
+        self.init = None
+        self.start = time.time()
+        self.n = 0
+
+    def update(self, val=1):
+        self.n += val
+
+    def avg(self):
+        return self.n / self.elapsed_time()
+
+    def elapsed_time(self):
+        return self.init + (time.time() - self.start)
+
+
+class StopwatchMeter(object):
+
+    def __init__(self, sum_=0):
+        self.sum = sum_
+        self.start_time = None
+
+    def start(self):
+        self.start_time = time.time()
+
+    def stop(self):
+        if self.start_time is not None:
+            delta = time.time() - self.start_time
+            self.sum += delta
+            self.start_time = None
+
+    def reset(self):
+        self.sum = 0
+        self.start_time = None
 
 
 def filter_pred(example):
@@ -50,19 +89,31 @@ def compute_loss(model, batch, criterion, optimizer=None):
     return loss.item()
 
 
-def train_epoch(model, train_iter, optimizer, criterion):
+def train_epoch(model, train_iter, optimizer, criterion, wall_timer):
+    wall_timer.start()
     model.train()
     pbar = tqdm(train_iter)
     total_loss = 0
+    samples_per_sec = TimeMeter()
+    time_per_batch = TimeMeter()
     for batch in pbar:
         loss = compute_loss(model, batch, criterion, optimizer)
         # torch.cuda.empty_cache()
         pbar.set_postfix(loss=loss)
         total_loss += loss
-    print(f'Train loss: {total_loss / len(train_iter):.5f}')
+        samples_per_sec.update(len(batch))
+        time_per_batch.update()
+    wall_timer.stop()
+    print(
+        f'Train loss: {total_loss / len(train_iter):.5f} '
+        f'Samples per second: {samples_per_sec.avg():.3f} '
+        f'Time per batch: {1 / time_per_batch.avg():.3f} '
+        f'Time elapsed: {wall_timer.sum:.3f}'
+    )
 
 
-def validate(model, val_iter, criterion):
+def validate(model, val_iter, criterion, wall_timer):
+    wall_timer.start()
     model.eval()
     pbar = tqdm(val_iter)
     total_loss = 0
@@ -72,7 +123,11 @@ def validate(model, val_iter, criterion):
             total_loss += loss
             pbar.set_postfix(loss=loss)
     res = total_loss / len(val_iter)
-    print(f'Validation loss: {res:.5f}')
+    wall_timer.stop()
+    print(
+        f'Validation loss: {res:.5f} '
+        f'Time elapsed: {wall_timer.sum:.3f}'
+    )
     return res
 
 
@@ -189,17 +244,20 @@ def train(args):
         optimizer.load_state_dict(checkpoint['optim'])
         init_epoch = checkpoint['epoch']
         best_val_loss = checkpoint['best_val_loss']
+        wall_timer = StopwatchMeter(checkpoint['train_wall'])
     else:
-        best_val_loss = validate(model, val_iter, criterion)
+        wall_timer = StopwatchMeter()
+        best_val_loss = validate(model, val_iter, criterion, wall_timer)
     for epoch in range(init_epoch, args.num_epoch):
-        train_epoch(model, train_iter, optimizer, criterion)
-        val_loss = validate(model, val_iter, criterion)
+        train_epoch(model, train_iter, optimizer, criterion, wall_timer)
+        val_loss = validate(model, val_iter, criterion, wall_timer)
         best_val_loss = min(best_val_loss, val_loss)
         checkpoint = {
             'model': model.state_dict(),
             'optim': optimizer.state_dict(),
             'epoch': epoch + 1,
             'best_val_loss': best_val_loss,
+            'train_wall': wall_timer.sum,
         }
         torch.save(checkpoint, path / f'checkpoint_{epoch}.pt')
         if val_loss == best_val_loss:
