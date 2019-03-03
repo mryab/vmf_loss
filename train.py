@@ -12,7 +12,7 @@ from torchtext.vocab import Vectors
 from tqdm import tqdm
 
 from model import Model
-from losses import *
+import losses
 
 
 class MeanInit:
@@ -98,7 +98,7 @@ def train_epoch(model, train_iter, optimizer, criterion, wall_timer):
     time_per_batch = TimeMeter()
     for batch in pbar:
         loss = compute_loss(model, batch, criterion, optimizer)
-        # torch.cuda.empty_cache()
+        torch.cuda.empty_cache()
         pbar.set_postfix(loss=loss)
         total_loss += loss
         samples_per_sec.update(len(batch))
@@ -164,13 +164,13 @@ def train(args):
         args.dataset + '/',
         exts=list(map(lambda x: str(x[0] / f'train.{args.dataset}.{x[1]}'), path_field_pairs)),
         fields=(src_field, tgt_field),
-        filter_pred=filter_pred
+        filter_pred=filter_pred,
     )
     val_dataset = TranslationDataset(
         args.dataset + '/',
         exts=list(map(lambda x: str(x[0] / f'dev.{x[1]}'), path_field_pairs)),
         fields=(src_field, tgt_field),
-        filter_pred=filter_pred
+        filter_pred=filter_pred,
     )
 
     random.seed(args.device_id)
@@ -218,9 +218,9 @@ def train(args):
     if args.loss == 'xent':
         criterion = nn.CrossEntropyLoss(ignore_index=1).to(device)
     elif args.loss == 'l2':
-        criterion = L2Loss(tgt_field, out_dim).to(device)
+        criterion = losses.L2Loss(tgt_field, out_dim).to(device)
     elif args.loss == 'cosine':
-        criterion = CosineLoss(tgt_field, out_dim).to(device)
+        criterion = losses.CosineLoss(tgt_field, out_dim).to(device)
     else:
         raise ValueError
     print('Starting training')
@@ -238,6 +238,7 @@ def train(args):
     dummy_dst[:, -1] = 3
 
     train_dummy(model, criterion, optimizer, (dummy_src, dummy_src_lengths, dummy_dst))
+
     if os.path.exists(path / 'checkpoint_last.pt'):
         checkpoint = torch.load(path / 'checkpoint_last.pt')
         model.load_state_dict(checkpoint['model'])
