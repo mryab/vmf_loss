@@ -149,16 +149,16 @@ def train(args):
     src_lang, tgt_lang = args.dataset.split('-')
     if args.token_type == 'word':
         path_src = path_dst = pathlib.Path('truecased')
-        inp_vocab_size = out_vocab_size = 50000 - 4  # 4 special tokens are added automatically
+        inp_vocab_size = out_vocab_size = 50000
     elif args.token_type == 'word_bpe':
         path_src = pathlib.Path('truecased')
         path_dst = pathlib.Path('bpe')
-        inp_vocab_size = 50000 - 4
-        out_vocab_size = 32000 - 4  # inferred from the paper
+        inp_vocab_size = 50000
+        out_vocab_size = 32000  # inferred from the paper
     else:
         path_src = path_dst = pathlib.Path('bpe')
-        inp_vocab_size = 16000 - 4
-        out_vocab_size = 32000 - 4
+        inp_vocab_size = 16000
+        out_vocab_size = 32000
     path_field_pairs = list(zip((path_src, path_dst), (src_lang, tgt_lang)))
     train_dataset = TranslationDataset(
         args.dataset + '/',
@@ -177,8 +177,8 @@ def train(args):
     torch.manual_seed(args.device_id)
     device = torch.device('cuda', args.device_id)
     torch.cuda.set_device(device)
-    src_field.build_vocab(train_dataset, max_size=inp_vocab_size)
-    tgt_field.build_vocab(train_dataset, max_size=out_vocab_size)
+    src_field.build_vocab(train_dataset, max_size=inp_vocab_size - 4)  # 4 special tokens are added automatically
+    tgt_field.build_vocab(train_dataset, max_size=out_vocab_size - 4)
 
     train_iter = BucketIterator(
         train_dataset,
