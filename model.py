@@ -124,7 +124,7 @@ class Model(nn.Module):
         output = self.decoder(encoder_output, enc_h, enc_c, enc_mask, dst)
         return output
 
-    def translate_greedy(self, src_tokens, src_lengths, max_len=100):
+    def translate_greedy(self, src_tokens, src_lengths, max_len=100, loss_type='xent'):
         src_tokens = src_tokens.transpose(0, 1)
         enc_out, enc_h, enc_c = self.encoder(src_tokens, src_lengths)
         enc_mask = src_tokens.eq(self.pad_idx)
@@ -141,10 +141,31 @@ class Model(nn.Module):
             output, decoder_hidden = self.decoder.decoder(rnn_input, decoder_hidden)
             out, attn_scores = self.decoder.attn(output, enc_out, enc_mask)
             inp_feed = out
-            pred_words = self.decoder.pred_proj(out).max(1)[1]
-            cur_emb = self.decoder.output_emb(pred_words)
+            if loss_type is 'xent':
+                pred_words = self.decoder.pred_proj(out).max(1)[1]
+            else:
+                scores = self._get_scores(self.decoder.pred_proj(out), loss_type, device=src_tokens.device)
+                pred_words = scores.max(1)[1]
+            cur_emb = self.decoder.output_emb(pred_words.to(src_tokens.device))
             decoder_outputs.append(pred_words)
             attention_scores.append(attn_scores)
         res = torch.stack(decoder_outputs).transpose(1, 0)
         attn = torch.stack(attention_scores).permute(2, 0, 1)  # seq_len x nsrc x bsz -> bsz x seq_len x nsrc
         return res, attn
+    
+    def _get_scores(self, output_vecs, loss_type, device):
+        # bsz x dim, voc_size x dim -> bsz x voc_size
+        # bsz x dim and dim x voc_size -> 
+        if loss_type == 'l2':
+            #voc_emb = self.out_voc.vocab.vectors
+            #return ((output_vecs.unsqueeze(2).to(voc_emb.device) - voc_emb.transpose(0,1)) ** 2).sum(1)
+            r_out = (output_vecs ** 2).sum(dim=1).unsqueeze(1)
+            r_voc = (self.out_voc.vocab.vectors ** 2).sum(dim=1).unsqueeze(0).to(device)
+            r_scal_prod = 2 * output_vecs.matmul(self.out_voc.vocab.vectors.t().to(device))
+            return - r_out - r_voc + r_scal_prod
+            
+        elif loss_type == 'cosine':
+            out_ves_norm = nn.functional.normalize(output_vecs, p=2, dim=1)
+            voc_emb_norm = nn.functional.normalize(self.out_voc.vocab.vectors.to(device), dim=1)
+            return output_vecs.matmul(self.out_voc.vocab.vectors.t())
+        

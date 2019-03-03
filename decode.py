@@ -97,7 +97,7 @@ def decode(args):
     out_dim = len(tgt_field.vocab)
     if args.loss != 'xent':
         # assign pretrained embeddings to trg_field
-        vectors = Vectors(name=args.emb_type + '.' + tgt_lang, cache=args.emb_dir)
+        vectors = Vectors(name='corpus.fasttext.txt', cache=args.emb_dir) #temporal path
         mean = torch.zeros((vectors.dim,))
         num = 0
         for word, ind in vectors.stoi.items():
@@ -106,6 +106,8 @@ def decode(args):
                 num += 1
         mean /= num
         tgt_field.vocab.set_vectors(vectors.stoi, vectors.vectors, vectors.dim, unk_init=MeanInit(mean))
+        tgt_field.vocab.vectors[tgt_field.vocab.stoi['<EOS>']].zero_()
+        tgt_field.vocab.vectors[tgt_field.vocab.stoi['<EOS>']] += 1.
         out_dim = vectors.dim
     model = Model(1024, 512, out_dim, src_field, tgt_field, 0.2).to(device)
     path = pathlib.Path('checkpoints') / args.dataset / args.token_type / args.loss
@@ -125,7 +127,7 @@ def decode(args):
             src = src[order]
             src_len = src_len[order]
             rev_order = sorted(range(len(order)), key=order.__getitem__)
-            preds, attn = model.translate_greedy(src, src_len, max_len=150)
+            preds, attn = model.translate_greedy(src, src_len, max_len=150, loss_type=args.loss)
             total_unk += (preds == tgt_field.vocab.stoi[tgt_field.unk_token]).sum().item()
             all_preds.extend(preds[rev_order])
     res = []
@@ -150,6 +152,9 @@ def decode(args):
             words = detruecaser.detruecase(words)
             words = detokenizer.detokenize(words)
             gt.append(words)
+            
+    print(res[7])
+    print(gt[7])
     print(corpus_bleu(res, [gt]))
     print(total_unk)
 

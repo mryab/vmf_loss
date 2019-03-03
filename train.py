@@ -141,7 +141,7 @@ def train(args):
     out_dim = len(tgt_field.vocab)
     if args.loss != 'xent':
         # assign pretrained embeddings to trg_field
-        vectors = Vectors(name=args.emb_type + '.' + tgt_lang, cache=args.emb_dir)
+        vectors = Vectors(name='corpus.fasttext.txt', cache=args.emb_dir) #temporal path
         mean = torch.zeros((vectors.dim,))
         num = 0
         for word, ind in vectors.stoi.items():
@@ -155,6 +155,7 @@ def train(args):
             vectors.dim,
             unk_init=MeanInit(mean))
         tgt_field.vocab.vectors[tgt_field.vocab.stoi['<EOS>']].zero_()
+        tgt_field.vocab.vectors[tgt_field.vocab.stoi['<EOS>']] += 1.
         out_dim = vectors.dim
     model = Model(1024, 512, out_dim, src_field, tgt_field, 0.2).to(device)
     # TODO change criterion (and output dim) depending on args; inp_dim for tied embeddings too
@@ -166,7 +167,7 @@ def train(args):
         criterion = CosineLoss(tgt_field, out_dim).to(device)
 
     print('Starting training')
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.0002)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     path = pathlib.Path('checkpoints') / args.dataset / args.token_type / args.loss
     if args.loss != 'xent':
         path /= args.emb_type
@@ -188,7 +189,7 @@ def train(args):
         best_val_loss = checkpoint['best_val_loss']
     else:
         best_val_loss = validate(model, val_iter, criterion)
-    for epoch in range(init_epoch, 15):
+    for epoch in range(init_epoch, args.num_epoch):
         train_epoch(model, train_iter, optimizer, criterion)
         val_loss = validate(model, val_iter, criterion)
         best_val_loss = min(best_val_loss, val_loss)
@@ -210,6 +211,8 @@ def main():
     parser.add_argument('--token-type', choices=['word', 'bpe', 'word_bpe'], required=True)
     parser.add_argument('--loss', choices=['xent', 'l2', 'cosine'], required=True)
     parser.add_argument('--batch-size', default=64, type=int)
+    parser.add_argument('--num-epoch', default=15, type=int)
+    parser.add_argument('--lr', default=0.0002, type=float)
     parser.add_argument('--emb-type', choices=['w2v', 'fasttext'], required=False)
     parser.add_argument('--emb-dir', type=str, required=False)
     parser.add_argument('--device-id', default=0, type=int)
