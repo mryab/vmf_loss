@@ -10,7 +10,6 @@ from torchtext.vocab import Vectors
 from tqdm import tqdm
 
 from model import Model
-from loss import *
 
 from sacremoses import MosesDetokenizer, MosesDetruecaser
 from sacrebleu import corpus_bleu
@@ -97,7 +96,7 @@ def decode(args):
     out_dim = len(tgt_field.vocab)
     if args.loss != 'xent':
         # assign pretrained embeddings to trg_field
-        vectors = Vectors(name='corpus.fasttext.txt', cache=args.emb_dir) #temporal path
+        vectors = Vectors(name='corpus.fasttext.txt', cache=args.emb_dir)  # temporal path
         mean = torch.zeros((vectors.dim,))
         num = 0
         for word, ind in vectors.stoi.items():
@@ -152,7 +151,7 @@ def decode(args):
             words = detruecaser.detruecase(words)
             words = detokenizer.detokenize(words)
             gt.append(words)
-            
+
     print(res[7])
     print(gt[7])
     print(corpus_bleu(res, [gt]))

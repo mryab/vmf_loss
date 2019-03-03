@@ -141,7 +141,7 @@ def train(args):
     out_dim = len(tgt_field.vocab)
     if args.loss != 'xent':
         # assign pretrained embeddings to trg_field
-        vectors = Vectors(name='corpus.fasttext.txt', cache=args.emb_dir) #temporal path
+        vectors = Vectors(name='corpus.fasttext.txt', cache=args.emb_dir)  # temporary path
         mean = torch.zeros((vectors.dim,))
         num = 0
         for word, ind in vectors.stoi.items():
@@ -154,18 +154,18 @@ def train(args):
             vectors.vectors,
             vectors.dim,
             unk_init=MeanInit(mean))
-        tgt_field.vocab.vectors[tgt_field.vocab.stoi['<EOS>']].zero_()
-        tgt_field.vocab.vectors[tgt_field.vocab.stoi['<EOS>']] += 1.
+        tgt_field.vocab.vectors[tgt_field.vocab.stoi['<EOS>']] = torch.ones(vectors.dim)
         out_dim = vectors.dim
     model = Model(1024, 512, out_dim, src_field, tgt_field, 0.2).to(device)
     # TODO change criterion (and output dim) depending on args; inp_dim for tied embeddings too
     if args.loss == 'xent':
         criterion = nn.CrossEntropyLoss(ignore_index=1).to(device)
-    if args.loss == 'l2':
+    elif args.loss == 'l2':
         criterion = L2Loss(tgt_field, out_dim).to(device)
-    if args.loss == 'cosine':
+    elif args.loss == 'cosine':
         criterion = CosineLoss(tgt_field, out_dim).to(device)
-
+    else:
+        raise ValueError
     print('Starting training')
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     path = pathlib.Path('checkpoints') / args.dataset / args.token_type / args.loss

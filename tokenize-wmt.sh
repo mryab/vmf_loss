@@ -3,12 +3,12 @@
 lgs="en fr"
 
 
-for lg in $lgs; do
+for lg in ${lgs}; do
     if [ ! -d "./wmt-$lg/tok" ]; then
       mkdir -p "./wmt-$lg/tok";
     fi
     dir="./wmt-$lg/*"
-    for file in $dir; do
+    for file in ${dir}; do
         sacremoses tokenize -j 10 < "$file" > "./wmt-$lg/tok/$(basename "$file")"
     done
     
@@ -16,7 +16,7 @@ for lg in $lgs; do
       mkdir -p "./wmt-$lg/truecased";
     fi
     dir="./wmt-$lg/tok/*"
-    for file in $dir; do
+    for file in ${dir}; do
         sacremoses truecase -m "./en-fr/truecased/model.$lg" -j 10 < "$file" > "./wmt-$lg/truecased/$(basename "$file")"
     done
     

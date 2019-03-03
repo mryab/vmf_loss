@@ -1,8 +1,7 @@
-from gensim.models.word2vec import LineSentence
-from gensim.models.word2vec import Word2Vec
-from gensim.models.fasttext import FastText
 import argparse
 
+from gensim.models.fasttext import FastText
+from gensim.models.word2vec import Word2Vec
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--corpus-path', required=True)

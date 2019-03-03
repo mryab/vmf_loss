@@ -1,8 +1,9 @@
-if [ ! -d ./wmt-fr ]; then
+#!/usr/bin/env bash
+if [[ ! -d ./wmt-fr ]]; then
   mkdir -p ./wmt-en;
 fi
 
-if [ ! -d ./wmt-fr ]; then
+if [[ ! -d ./wmt-fr ]]; then
   mkdir -p ./wmt-fr;
 fi
 
@@ -10,8 +11,8 @@ fi
 lgs="en fr"
 years="2007 2008 2009 2010 2011 2012 2013"
 
-for lg in $lgs; do
-    for year in $years; do
+for lg in ${lgs}; do
+    for year in ${years}; do
         URL="http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.$year.$lg.shuffled.gz"
         wget "$URL"
         gzip -d "news.$year.$lg.shuffled.gz"
@@ -20,7 +21,7 @@ for lg in $lgs; do
 done
 
 
-for lg in $lgs; do
+for lg in ${lgs}; do
     URL="http://www.statmt.org/wmt15/training-monolingual-news-crawl-v2/news.2014.$lg.shuffled.v2.gz"
     wget "$URL"
     gzip -d "news.2014.$lg.shuffled.v2.gz"
