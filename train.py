@@ -94,14 +94,16 @@ def train(args):
     src_lang, tgt_lang = args.dataset.split('-')
     if args.token_type == 'word':
         path_src = path_dst = pathlib.Path('truecased')
-        vocab_size = 50000
+        inp_vocab_size = out_vocab_size = 50000 - 4  # 4 special tokens are added automatically
     elif args.token_type == 'word_bpe':
         path_src = pathlib.Path('truecased')
         path_dst = pathlib.Path('bpe')
-        vocab_size = 50000
+        inp_vocab_size = 50000 - 4
+        out_vocab_size = 32000 - 4  # inferred from the paper
     else:
         path_src = path_dst = pathlib.Path('bpe')
-        vocab_size = 50000  # should be 100k for bpe, but some corpora don't have this many words
+        inp_vocab_size = 16000 - 4
+        out_vocab_size = 32000 - 4
     path_field_pairs = list(zip((path_src, path_dst), (src_lang, tgt_lang)))
     train_dataset = TranslationDataset(
         args.dataset + '/',
@@ -120,8 +122,8 @@ def train(args):
     torch.manual_seed(args.device_id)
     device = torch.device('cuda', args.device_id)
     torch.cuda.set_device(device)
-    src_field.build_vocab(train_dataset, max_size=vocab_size)
-    tgt_field.build_vocab(train_dataset, max_size=vocab_size)
+    src_field.build_vocab(train_dataset, max_size=inp_vocab_size)
+    tgt_field.build_vocab(train_dataset, max_size=out_vocab_size)
 
     train_iter = BucketIterator(
         train_dataset,
@@ -138,7 +140,7 @@ def train(args):
         sort_within_batch=True,
         # device=device,
     )
-    out_dim = len(tgt_field.vocab)
+    out_dim = out_vocab_size
     if args.loss != 'xent':
         # assign pretrained embeddings to trg_field
         vectors = Vectors(name='corpus.fasttext.txt', cache=args.emb_dir)  # temporary path
