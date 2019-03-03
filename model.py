@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from losses import LogCMK
 
 
 class StackedLSTMCell(nn.Module):
@@ -169,4 +170,7 @@ class Model(nn.Module):
 
         elif loss_type == 'cosine' or loss_type == 'maxmarg':
             out_ves_norm = nn.functional.normalize(output_vecs, p=2, dim=1)
-            return 1 - out_ves_norm.matmul(vecs).t()
+            return 1 - out_ves_norm.matmul(vecs.t())
+        elif loss_type == 'vmf':
+            norm = output_vec.norm(p=2, dim=2, keepdim=True)
+            return LogCMK.apply(vecs.dim, norm) + output_vec.matmul(vecs.t())

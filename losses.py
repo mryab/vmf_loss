@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch
-from torch.nn.functional import cosine_similarity
+from torch.nn.functional import cosine_similarity, normalize
+import scipy.special
 
 
 class EmbeddingLoss(nn.Module):
@@ -57,7 +58,7 @@ class MaxMarginLoss(EmbeddingLoss):
         max_cos_voc = cos_out_voc.gather(2, jmax).squeeze()  # batch x seq
         diff = gamma + max_cos_voc - cos_target
 
-        return diff.max(torch.zeros(1))[mask].mean()
+        return diff.max(torch.zeros(1).to(diff.device))[mask].mean()
 
 
 class NLLvMFLossBase(EmbeddingLoss):
@@ -71,14 +72,14 @@ class NLLvMFLossBase(EmbeddingLoss):
         target_norm = self.tgt_embedding(target)
         mask = target.ne(self.pad_id)  # batch x seq
 
-        loss = - self._cmk(self.emb_dim / 2. + 0.5, preds.norm(p=2, dim=2)
+        loss = - self._logcmk(self.emb_dim, preds.norm(p=2, dim=2)
                                  ) - self.reg_2 * (target_norm * preds).sum(dim=2)
         if self.reg_1 > 0:
             loss = loss + self.reg_1 * preds.norm(p=2, dim=2)
 
         return loss[mask].mean()
 
-    def _cmk(self, v, z):
+    def _logcmk(self, v, z):
         """
             v: scalar,
             z: Tensor of shape batch x seq
@@ -92,7 +93,8 @@ class NLLvMFApproxPaper(NLLvMFLossBase):
     def __init__(self, tgt_voc, emb_dim, reg_1=0, reg_2=1):
         super(NLLvMFApproxPaper, self).__init__(tgt_voc, emb_dim, reg_1, reg_2)
 
-    def _cmk(self, v, z):
+    def _logcmk(self, m, z):
+        v = m / 2. + 0.5
         return torch.sqrt((v + 1)**2 + z**2) - (v - 1) * \
             torch.log(v - 1 + torch.sqrt((v + 1)**2 + z**2))
 
@@ -101,6 +103,28 @@ class NLLvMFApproxFixed(NLLvMFLossBase):
     def __init__(self, tgt_voc, emb_dim, reg_1=0, reg_2=1):
         super(NLLvMFLossPaperFixed, self).__init__(tgt_voc, emb_dim, reg_1, reg_2)
 
-    def _cmk(self, v, z):
+    def _logcmk(self, m, z):
+        v = m / 2. + 0.5
         return torch.sqrt((v - 1)**2 + z**2) - (v - 1) * \
             torch.log(v - 1 + torch.sqrt((v - 1)**2 + z**2))
+    
+class NLLvMF(NLLvMFLossBase):
+    def __init__(self, tgt_voc, emb_dim, reg_1=0, reg_2=1):
+        super(NLLvMF, self).__init__(tgt_voc, emb_dim, reg_1, reg_2)
+
+    def _logcmk(self, m, z):
+        return LogCMK.apply(m, z)
+    
+    
+class LogCMK(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, m, k):
+        ctx.save_for_backward(m, k)
+        Ive = torch.from_numpy(scipy.special.ive(m/2.-1, k.detach().numpy())).to(k.device)
+        return (m/2.-1)*torch.log(k) - torch.log(Ive) - (m/2)*np.log(2*np.pi)
+        
+    @staticmethod
+    def backward(ctx, grad_output):
+        m, k = ctx.saved_tensors
+        grads = -((scipy.special.ive(m/2., k.detach().numpy()))/(scipy.special.ive(m/2.-1,k.detach().numpy())))
+        return None, grad_output * torch.from_numpy(grads).to(k.device)
