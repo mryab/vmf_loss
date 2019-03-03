@@ -141,7 +141,7 @@ class Model(nn.Module):
             output, decoder_hidden = self.decoder.decoder(rnn_input, decoder_hidden)
             out, attn_scores = self.decoder.attn(output, enc_out, enc_mask)
             inp_feed = out
-            if loss_type is 'xent':
+            if loss_type == 'xent':
                 pred_words = self.decoder.pred_proj(out).max(1)[1]
             else:
                 distances = self.compute_distances(self.decoder.pred_proj(out), loss_type)

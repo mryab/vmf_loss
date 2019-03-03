@@ -152,8 +152,6 @@ def decode(args):
             words = detokenizer.detokenize(words)
             gt.append(words)
 
-    print(res[7])
-    print(gt[7])
     print(corpus_bleu(res, [gt]))
     print(total_unk)
 

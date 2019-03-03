@@ -10,7 +10,7 @@ from torchtext.vocab import Vectors
 from tqdm import tqdm
 
 from model import Model
-from loss import *
+from losses import *
 
 
 class MeanInit:
