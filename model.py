@@ -22,7 +22,7 @@ class StackedLSTMCell(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self, hid_dim, inp_emb_dim, inp_voc, dropout):
+    def __init__(self, hid_dim, inp_emb_dim, inp_voc):
         super().__init__()
         self.input_emb = nn.Embedding(
             len(inp_voc.vocab),
@@ -32,9 +32,8 @@ class Encoder(nn.Module):
         self.encoder = nn.LSTM(
             inp_emb_dim,
             hid_dim // 2,
-            num_layers=2,
-            bidirectional=True,
-            dropout=dropout,
+            num_layers=1,
+            bidirectional=True
         )
         self.hid_dim = hid_dim // 2
 
@@ -42,14 +41,14 @@ class Encoder(nn.Module):
         src_emb = self.input_emb(src_tokens)
         src_packed = nn.utils.rnn.pack_padded_sequence(src_emb, src_lengths)
         seqlen, bsz = src_tokens.size()
-        h0 = src_emb.new_zeros((4, bsz, self.hid_dim))
-        c0 = src_emb.new_zeros((4, bsz, self.hid_dim))
+        h0 = src_emb.new_zeros((2, bsz, self.hid_dim))
+        c0 = src_emb.new_zeros((2, bsz, self.hid_dim))
         encoder_output, (enc_h, enc_c) = self.encoder(src_packed, (h0, c0))
         encoder_output, _ = nn.utils.rnn.pad_packed_sequence(encoder_output)
 
         def combine_bidir(outs):
-            out = outs.view(2, 2, bsz, -1).transpose(1, 2).contiguous()
-            return out.view(2, bsz, -1)
+            out = outs.view(1, 2, bsz, -1).transpose(1, 2).contiguous()
+            return out.view(1, bsz, -1)
 
         return encoder_output, combine_bidir(enc_h), combine_bidir(enc_c)
 
@@ -94,7 +93,7 @@ class Decoder(nn.Module):
         dst_emb = self.output_emb(dst)
         seqlen, bsz = dst.size()
         inp_feed = dst_emb.new_zeros(bsz, self.hid_dim)
-        decoder_hidden = ([enc_hid[i] for i in range(2)], [enc_memory[i] for i in range(2)])
+        decoder_hidden = ([enc_hid[0] for _ in range(2)], [enc_memory[0] for _ in range(2)])
         decoder_outputs = []
         for step, cur_emb in enumerate(dst_emb):
             rnn_input = torch.cat((cur_emb, inp_feed), dim=1)
@@ -111,7 +110,7 @@ class Decoder(nn.Module):
 class Model(nn.Module):
     def __init__(self, hid_dim, inp_emb_dim, out_dim, inp_voc, out_voc, dropout):
         super().__init__()
-        self.encoder = Encoder(hid_dim, inp_emb_dim, inp_voc, dropout)
+        self.encoder = Encoder(hid_dim, inp_emb_dim, inp_voc)
         self.decoder = Decoder(inp_emb_dim, hid_dim, out_dim, out_voc, dropout)
         self.pad_idx = inp_voc.vocab.stoi[inp_voc.pad_token]
         self.out_voc = out_voc
@@ -133,7 +132,7 @@ class Model(nn.Module):
                               device=src_tokens.device, dtype=torch.long)
         cur_emb = self.decoder.output_emb(cur_word)
         inp_feed = cur_emb.new_zeros(bsz, self.decoder.hid_dim)
-        decoder_hidden = ([enc_h[i] for i in range(2)], [enc_c[i] for i in range(2)])
+        decoder_hidden = ([enc_h[0] for _ in range(2)], [enc_c[0] for _ in range(2)])
         decoder_outputs = []
         attention_scores = []
         for step in range(max_len):
