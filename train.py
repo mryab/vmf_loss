@@ -26,7 +26,6 @@ class MeanInit:
 class TimeMeter(object):
 
     def __init__(self):
-        self.init = None
         self.start = time.time()
         self.n = 0
 
@@ -37,7 +36,7 @@ class TimeMeter(object):
         return self.n / self.elapsed_time()
 
     def elapsed_time(self):
-        return self.init + (time.time() - self.start)
+        return time.time() - self.start
 
 
 class StopwatchMeter(object):
