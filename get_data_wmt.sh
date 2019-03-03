@@ -49,6 +49,6 @@ gzip -d "news.2015.en.shuffled.gz"
 mv "news.2015.en.shuffled" ./wmt-en
 
 FR_URL="http://www.statmt.org/wmt15/training-monolingual-nc-v10/news-commentary-v10.fr.gz"
-wget "$EN_URL"
+wget "$FR_URL"
 gzip -d "news-commentary-v10.fr.gz"
 mv "news-commentary-v10.fr" ./wmt-fr
