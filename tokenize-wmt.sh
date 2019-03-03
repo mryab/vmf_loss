@@ -4,7 +4,7 @@ lgs="en fr"
 
 
 for lg in ${lgs}; do
-    if [ ! -d "./wmt-$lg/tok" ]; then
+    if [[ ! -d "./wmt-$lg/tok" ]]; then
       mkdir -p "./wmt-$lg/tok";
     fi
     dir="./wmt-$lg/*"
@@ -12,7 +12,7 @@ for lg in ${lgs}; do
         sacremoses tokenize -j 10 < "$file" > "./wmt-$lg/tok/$(basename "$file")"
     done
     
-    if [ ! -d "./wmt-$lg/truecased" ]; then
+    if [[ ! -d "./wmt-$lg/truecased" ]]; then
       mkdir -p "./wmt-$lg/truecased";
     fi
     dir="./wmt-$lg/tok/*"
@@ -22,5 +22,5 @@ for lg in ${lgs}; do
     
     rm -rf "./wmt-$lg/tok"
     cat "./wmt-$lg/truecased/*" > "./corpus.$lg"
-    rm -rf "./wmt-$lg/ruecased"
+    rm -rf "./wmt-$lg/truecased"
 done

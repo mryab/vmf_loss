@@ -27,18 +27,6 @@ def filter_pred(example):
     return len(example.src) <= 100 and len(example.trg) <= 100
 
 
-def tokens_to_string(tokens, tgt_field):
-    res = []
-    for sent in tokens:
-        words = [tgt_field.vocab.itos[token] for token in sent]
-        if tgt_field.init_token in words:
-            words.remove(tgt_field.init_token)
-        if tgt_field.eos_token in words:
-            words = words[:words.index(tgt_field.eos_token)]
-        res.append(' '.join(words))
-    return res
-
-
 def decode(args):
     src_field = Field(
         batch_first=True,
@@ -118,7 +106,27 @@ def decode(args):
     model.load_state_dict(checkpoint['model'])
     model.eval()
     total_unk = 0
-    all_preds = []
+    if args.token_type == 'word':
+        word_dict = {}
+        with open(f'{args.dataset}/align/dict') as f:
+            for line in f:
+                src_word, dst_word = line.strip().split()
+                word_dict[src_word] = dst_word
+    res = []
+    detokenizer = MosesDetokenizer()
+    detruecaser = MosesDetruecaser()
+
+    def replace_unk_word(current_word, aligned_src):
+        if current_word == tgt_field.unk_token:
+            aligned_word = src_field.vocab.itos[aligned_src]
+            repl = word_dict.get(aligned_word)
+            if repl is None:
+                return aligned_word
+            else:
+                return repl
+        else:
+            return current_word
+
     with torch.no_grad():
         for batch in tqdm(test_iter):
             src, src_len = batch.src
@@ -127,21 +135,24 @@ def decode(args):
             src_len = src_len[order]
             rev_order = sorted(range(len(order)), key=order.__getitem__)
             preds, attn = model.translate_greedy(src, src_len, max_len=150, loss_type=args.loss)
+            print(attn.sum(2))
+            max_attn, alignments = attn.max(2)
             total_unk += (preds == tgt_field.vocab.stoi[tgt_field.unk_token]).sum().item()
-            all_preds.extend(preds[rev_order])
-    res = []
-    detokenizer = MosesDetokenizer()
-    detruecaser = MosesDetruecaser()
-    for sent in tqdm(all_preds):
-        words = [tgt_field.vocab.itos[token] for token in sent]
-        if tgt_field.eos_token in words:
-            words = words[:words.index(tgt_field.eos_token)]
-        words = ' '.join(words)
-        if args.token_type in ['bpe', 'word_bpe']:
-            words = words.replace('@@ ', '')
-        words = detruecaser.detruecase(words)
-        words = detokenizer.detokenize(words)
-        res.append(words)
+            preds = preds[rev_order]
+            alignments = alignments[rev_order]
+            words_for_alignments = src[rev_order][torch.arange(src.size(0))[:, None], alignments]
+            for sent, align in zip(preds, words_for_alignments):
+                words = [tgt_field.vocab.itos[token] for token in sent]
+                if tgt_field.eos_token in words:
+                    words = words[:words.index(tgt_field.eos_token)]
+                if args.token_type == 'word':
+                    words = [replace_unk_word(word, align_for_word) for word, align_for_word in zip(words, align)]
+                words = ' '.join(words)
+                if args.token_type in ['bpe', 'word_bpe']:
+                    words = words.replace('@@ ', '')
+                words = detruecaser.detruecase(words)
+                words = detokenizer.detokenize(words)
+                res.append(words)
     gt = []
     with open(pathlib.Path(args.dataset) / path_dst / f'test.{tgt_lang}') as test_file:
         lines = test_file.read().splitlines()
