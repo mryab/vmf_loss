@@ -107,6 +107,7 @@ def decode(args):
         tgt_field.vocab.set_vectors(vectors.stoi, vectors.vectors, vectors.dim, unk_init=MeanInit(mean))
         tgt_field.vocab.vectors[tgt_field.vocab.stoi['<EOS>']].zero_()
         tgt_field.vocab.vectors[tgt_field.vocab.stoi['<EOS>']] += 1.
+        tgt_field.vocab.vectors[tgt_field.vocab.stoi['<EOS>']] = torch.ones(vectors.dim)
         out_dim = vectors.dim
     model = Model(1024, 512, out_dim, src_field, tgt_field, 0.2).to(device)
     path = pathlib.Path('checkpoints') / args.dataset / args.token_type / args.loss
@@ -160,7 +161,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', choices=['de-en', 'en-fr', 'fr-en'], required=True)
     parser.add_argument('--token-type', choices=['word', 'bpe', 'word_bpe'], required=True)
-    parser.add_argument('--loss', choices=['xent', 'l2', 'cosine'], required=True)
+    parser.add_argument('--loss', choices=['xent', 'l2', 'cosine', 'maxmarg', 'vmf'], required=True)
     parser.add_argument('--batch-size', default=64, type=int)
     parser.add_argument('--emb-type', choices=['w2v', 'fasttext'], required=False)
     parser.add_argument('--emb-dir', type=str, required=False)

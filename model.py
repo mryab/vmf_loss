@@ -161,13 +161,12 @@ class Model(nn.Module):
         if loss_type == 'l2':
             # voc_emb = self.out_voc.vocab.vectors
             # return ((output_vecs.unsqueeze(2).to(voc_emb.device) - voc_emb.transpose(0,1)) ** 2).sum(1)
-            r_out = torch.norm(output_vecs, 1).unsqueeze(1) ** 2
+            r_out = torch.norm(output_vecs, dim=1).unsqueeze(1) ** 2
 
             r_voc = torch.norm(vecs, dim=1).unsqueeze(0) ** 2
             r_scal_prod = 2 * output_vecs.matmul(vecs.t())
             return r_out + r_voc - r_scal_prod
 
-        elif loss_type == 'cosine':
+        elif loss_type == 'cosine' or loss_type == 'maxmarg:
             out_ves_norm = nn.functional.normalize(output_vecs, p=2, dim=1)
-            voc_emb_norm = nn.functional.normalize(vecs, dim=1)
-            return 1 - out_ves_norm.matmul(voc_emb_norm)
+            return 1 - out_ves_norm.matmul(vecs)
