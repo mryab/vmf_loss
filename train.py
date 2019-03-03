@@ -213,7 +213,7 @@ def train(args):
         tgt_field.vocab.vectors[tgt_field.vocab.stoi['<EOS>']] = torch.ones(vectors.dim)
         tgt_field.vocab.vectors = nn.functional.normalize(tgt_field.vocab.vectors, p=2, dim=-1)
         out_dim = vectors.dim
-    model = Model(1024, 512, out_dim, src_field, tgt_field, 0.2).to(device)
+    model = Model(1024, 512, out_dim, src_field, tgt_field, 0.0).to(device)
     # TODO change criterion (and output dim) depending on args; inp_dim for tied embeddings too
     if args.loss == 'xent':
         criterion = nn.CrossEntropyLoss(ignore_index=1).to(device)
