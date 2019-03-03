@@ -105,9 +105,8 @@ def decode(args):
                 num += 1
         mean /= num
         tgt_field.vocab.set_vectors(vectors.stoi, vectors.vectors, vectors.dim, unk_init=MeanInit(mean))
-        tgt_field.vocab.vectors[tgt_field.vocab.stoi['<EOS>']].zero_()
-        tgt_field.vocab.vectors[tgt_field.vocab.stoi['<EOS>']] += 1.
         tgt_field.vocab.vectors[tgt_field.vocab.stoi['<EOS>']] = torch.ones(vectors.dim)
+        tgt_field.vocab.vectors = F.normalize(tgt_field.vocab.vectors, p=2, dim=-1)
         out_dim = vectors.dim
     model = Model(1024, 512, out_dim, src_field, tgt_field, 0.2).to(device)
     path = pathlib.Path('checkpoints') / args.dataset / args.token_type / args.loss
