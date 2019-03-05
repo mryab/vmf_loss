@@ -30,18 +30,18 @@ def filter_pred(example):
 
 def decode(args):
     src_field = Field(
-        batch_first=True,
-        include_lengths=True,
-        fix_length=None,
-        init_token='<BOS>',
-        eos_token='<EOS>',
+            batch_first=True,
+            include_lengths=True,
+            fix_length=None,
+            init_token='<BOS>',
+            eos_token='<EOS>',
     )
     tgt_field = Field(
-        batch_first=True,
-        include_lengths=True,
-        fix_length=None,
-        init_token='<BOS>',
-        eos_token='<EOS>',
+            batch_first=True,
+            include_lengths=True,
+            fix_length=None,
+            init_token='<BOS>',
+            eos_token='<EOS>',
     )
     src_lang, tgt_lang = args.dataset.split('-')
     if args.token_type == 'word':
@@ -57,15 +57,15 @@ def decode(args):
         inp_vocab_size = out_vocab_size = 16000
     path_field_pairs = list(zip((path_src, path_dst), (src_lang, tgt_lang)))
     train_dataset = TranslationDataset(
-        args.dataset + '/',
-        exts=list(map(lambda x: str(x[0] / f'train.{args.dataset}.{x[1]}'), path_field_pairs)),
-        fields=(src_field, tgt_field),
-        filter_pred=filter_pred,
+            args.dataset + '/',
+            exts=list(map(lambda x: str(x[0] / f'train.{args.dataset}.{x[1]}'), path_field_pairs)),
+            fields=(src_field, tgt_field),
+            filter_pred=filter_pred,
     )
     test_dataset = TranslationDataset(
-        args.dataset + '/',
-        exts=list(map(lambda x: str(x[0] / f'test.{x[1]}'), path_field_pairs)),
-        fields=(src_field, tgt_field),
+            args.dataset + '/',
+            exts=list(map(lambda x: str(x[0] / f'test.{x[1]}'), path_field_pairs)),
+            fields=(src_field, tgt_field),
     )
 
     random.seed(args.device_id)
@@ -76,12 +76,12 @@ def decode(args):
     tgt_field.build_vocab(train_dataset, max_size=out_vocab_size - 4)
 
     test_iter = BucketIterator(
-        test_dataset,
-        batch_size=args.batch_size,
-        train=False,
-        sort=False,
-        sort_within_batch=False,  # ensure correct order
-        device=device,
+            test_dataset,
+            batch_size=args.batch_size,
+            train=False,
+            sort=False,
+            sort_within_batch=False,  # ensure correct order
+            device=device,
     )
     out_dim = len(tgt_field.vocab)
     if args.loss != 'xent':

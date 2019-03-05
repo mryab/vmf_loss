@@ -104,10 +104,10 @@ def train_epoch(model, train_iter, optimizer, criterion, wall_timer):
         time_per_batch.update()
     wall_timer.stop()
     print(
-        f'Train loss: {total_loss / len(train_iter):.5f} '
-        f'Samples per second: {samples_per_sec.avg():.3f} '
-        f'Time per batch: {1 / time_per_batch.avg():.3f} '
-        f'Time elapsed: {wall_timer.sum:.3f}'
+            f'Train loss: {total_loss / len(train_iter):.5f} '
+            f'Samples per second: {samples_per_sec.avg():.3f} '
+            f'Time per batch: {1 / time_per_batch.avg():.3f} '
+            f'Time elapsed: {wall_timer.sum:.3f}'
     )
 
 
@@ -124,26 +124,26 @@ def validate(model, val_iter, criterion, wall_timer):
     res = total_loss / len(val_iter)
     wall_timer.stop()
     print(
-        f'Validation loss: {res:.5f} '
-        f'Time elapsed: {wall_timer.sum:.3f}'
+            f'Validation loss: {res:.5f} '
+            f'Time elapsed: {wall_timer.sum:.3f}'
     )
     return res
 
 
 def train(args):
     src_field = Field(
-        batch_first=True,
-        include_lengths=True,
-        fix_length=None,
-        init_token='<BOS>',
-        eos_token='<EOS>',
+            batch_first=True,
+            include_lengths=True,
+            fix_length=None,
+            init_token='<BOS>',
+            eos_token='<EOS>',
     )
     tgt_field = Field(
-        batch_first=True,
-        include_lengths=True,
-        fix_length=None,
-        init_token='<BOS>',
-        eos_token='<EOS>',
+            batch_first=True,
+            include_lengths=True,
+            fix_length=None,
+            init_token='<BOS>',
+            eos_token='<EOS>',
     )
     src_lang, tgt_lang = args.dataset.split('-')
     if args.token_type == 'word':
@@ -159,16 +159,16 @@ def train(args):
         inp_vocab_size = out_vocab_size = 16000
     path_field_pairs = list(zip((path_src, path_dst), (src_lang, tgt_lang)))
     train_dataset = TranslationDataset(
-        args.dataset + '/',
-        exts=list(map(lambda x: str(x[0] / f'train.{args.dataset}.{x[1]}'), path_field_pairs)),
-        fields=(src_field, tgt_field),
-        filter_pred=filter_pred,
+            args.dataset + '/',
+            exts=list(map(lambda x: str(x[0] / f'train.{args.dataset}.{x[1]}'), path_field_pairs)),
+            fields=(src_field, tgt_field),
+            filter_pred=filter_pred,
     )
     val_dataset = TranslationDataset(
-        args.dataset + '/',
-        exts=list(map(lambda x: str(x[0] / f'dev.{x[1]}'), path_field_pairs)),
-        fields=(src_field, tgt_field),
-        filter_pred=filter_pred,
+            args.dataset + '/',
+            exts=list(map(lambda x: str(x[0] / f'dev.{x[1]}'), path_field_pairs)),
+            fields=(src_field, tgt_field),
+            filter_pred=filter_pred,
     )
 
     random.seed(args.device_id)
@@ -179,19 +179,19 @@ def train(args):
     tgt_field.build_vocab(train_dataset, max_size=out_vocab_size - 4)
 
     train_iter = BucketIterator(
-        train_dataset,
-        batch_size=args.batch_size,
-        sort_key=lambda x: (len(x.src), len(x.trg)),
-        sort_within_batch=True,
-        # device=device,
+            train_dataset,
+            batch_size=args.batch_size,
+            sort_key=lambda x: (len(x.src), len(x.trg)),
+            sort_within_batch=True,
+            device=device,
     )
     val_iter = BucketIterator(
-        val_dataset,
-        batch_size=args.batch_size,
-        train=False,
-        sort_key=lambda x: (len(x.src), len(x.trg)),
-        sort_within_batch=True,
-        # device=device,
+            val_dataset,
+            batch_size=args.batch_size,
+            train=False,
+            sort_key=lambda x: (len(x.src), len(x.trg)),
+            sort_within_batch=True,
+            device=device,
     )
     out_dim = out_vocab_size
     if args.loss != 'xent':
@@ -205,17 +205,17 @@ def train(args):
                 num += 1
         mean /= num
         tgt_field.vocab.set_vectors(
-            vectors.stoi,
-            vectors.vectors,
-            vectors.dim,
-            unk_init=MeanInit(mean))
+                vectors.stoi,
+                vectors.vectors,
+                vectors.dim,
+                unk_init=MeanInit(mean))
         tgt_field.vocab.vectors[tgt_field.vocab.stoi['<EOS>']] = torch.ones(vectors.dim)
         tgt_field.vocab.vectors = nn.functional.normalize(tgt_field.vocab.vectors, p=2, dim=-1)
         out_dim = vectors.dim
     model = Model(1024, 512, out_dim, src_field, tgt_field, 0.0).to(device)
     # TODO change criterion (and output dim) depending on args; inp_dim for tied embeddings too
     if args.loss == 'xent':
-        criterion = nn.CrossEntropyLoss(ignore_index=1).to(device)
+        criterion = nn.CrossEntropyLoss(ignore_index=tgt_field.vocab.stoi[tgt_field.pad_token]).to(device)
     elif args.loss == 'l2':
         criterion = losses.L2Loss(tgt_field, out_dim).to(device)
     elif args.loss == 'cosine':
@@ -259,11 +259,11 @@ def train(args):
         val_loss = validate(model, val_iter, criterion, wall_timer)
         best_val_loss = min(best_val_loss, val_loss)
         checkpoint = {
-            'model': model.state_dict(),
-            'optim': optimizer.state_dict(),
-            'epoch': epoch + 1,
-            'best_val_loss': best_val_loss,
-            'train_wall': wall_timer.sum,
+                'model': model.state_dict(),
+                'optim': optimizer.state_dict(),
+                'epoch': epoch + 1,
+                'best_val_loss': best_val_loss,
+                'train_wall': wall_timer.sum,
         }
         torch.save(checkpoint, path / f'checkpoint_{epoch}.pt')
         if val_loss == best_val_loss:

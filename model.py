@@ -62,13 +62,7 @@ class AttentionLayer(nn.Module):
         x = input_
         attn_scores = (source_hids * x.unsqueeze(0)).sum(dim=2)
 
-        if encoder_padding_mask is not None:
-            attn_scores = attn_scores.float().masked_fill_(
-                encoder_padding_mask,
-                float('-inf')
-            ).type_as(attn_scores)
-
-        attn_scores = torch.softmax(attn_scores, dim=0)
+        attn_scores = torch.softmax(attn_scores.masked_fill_(encoder_padding_mask, float('-inf')), dim=0)
 
         x = (attn_scores.unsqueeze(2) * source_hids).sum(dim=0)
         x = torch.tanh(self.output_proj(torch.cat((x, input_), dim=1)))
@@ -159,14 +153,11 @@ class Model(nn.Module):
         device = output_vecs.device
         vecs = self.out_voc.vocab.vectors.to(device)
         if loss_type == 'l2':
-            # voc_emb = self.out_voc.vocab.vectors
-            # return ((output_vecs.unsqueeze(2).to(voc_emb.device) - voc_emb.transpose(0,1)) ** 2).sum(1)
             r_out = torch.norm(output_vecs, dim=1).unsqueeze(1) ** 2
 
             r_voc = torch.norm(vecs, dim=1).unsqueeze(0) ** 2
-            r_scal_prod = 2 * output_vecs.matmul(vecs.t())
+            r_scal_prod = 2 * output_vecs.matmul(vecs.transpose(0, 1))
             return r_out + r_voc - r_scal_prod
-
         else:
             out_ves_norm = nn.functional.normalize(output_vecs, p=2, dim=1)
-            return 1 - out_ves_norm.matmul(vecs.t())
+            return 1 - out_ves_norm.matmul(vecs.transpose(0, 1))

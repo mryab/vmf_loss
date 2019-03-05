@@ -50,9 +50,9 @@ class MaxMarginLoss(EmbeddingLoss):
 
         gamma = 0.5
 
-        cos_out_voc = out_norm.matmul(voc_norm.t())  # batch x seq x voc
+        cos_out_voc = out_norm.matmul(voc_norm.transpose(0, 1))  # batch x seq x voc
         maxvalues, jmax = torch.max(
-            cos_out_voc - target_norm.matmul(voc_norm.t()), dim=2, keepdim=True)  # batch x seq x 1
+                cos_out_voc - target_norm.matmul(voc_norm.transpose(0, 1)), dim=2, keepdim=True)  # batch x seq x 1
 
         cos_target = cos_out_voc.gather(2, target.unsqueeze(2)).squeeze()
         max_cos_voc = cos_out_voc.gather(2, jmax).squeeze()  # batch x seq
@@ -73,7 +73,7 @@ class NLLvMFLossBase(EmbeddingLoss):
         mask = target.ne(self.pad_id)  # batch x seq
 
         loss = - self._logcmk(self.emb_dim, preds.norm(p=2, dim=2)
-                                 ) - self.reg_2 * (target_norm * preds).sum(dim=2)
+                              ) - self.reg_2 * (target_norm * preds).sum(dim=2)
         if self.reg_1 > 0:
             loss = loss + self.reg_1 * preds.norm(p=2, dim=2)
 
@@ -95,8 +95,8 @@ class NLLvMFApproxPaper(NLLvMFLossBase):
 
     def _logcmk(self, m, z):
         v = m / 2. + 0.5
-        return torch.sqrt((v + 1)**2 + z**2) - (v - 1) * \
-            torch.log(v - 1 + torch.sqrt((v + 1)**2 + z**2))
+        return torch.sqrt((v + 1) ** 2 + z ** 2) - (v - 1) * \
+               torch.log(v - 1 + torch.sqrt((v + 1) ** 2 + z ** 2))
 
 
 class NLLvMFApproxFixed(NLLvMFLossBase):
@@ -105,26 +105,27 @@ class NLLvMFApproxFixed(NLLvMFLossBase):
 
     def _logcmk(self, m, z):
         v = m / 2. + 0.5
-        return torch.sqrt((v - 1)**2 + z**2) - (v - 1) * \
-            torch.log(v - 1 + torch.sqrt((v - 1)**2 + z**2))
-    
+        return torch.sqrt((v - 1) ** 2 + z ** 2) - (v - 1) * \
+               torch.log(v - 1 + torch.sqrt((v - 1) ** 2 + z ** 2))
+
+
 class NLLvMF(NLLvMFLossBase):
     def __init__(self, tgt_voc, emb_dim, reg_1=0, reg_2=1):
         super(NLLvMF, self).__init__(tgt_voc, emb_dim, reg_1, reg_2)
 
     def _logcmk(self, m, z):
         return LogCMK.apply(m, z)
-    
-    
+
+
 class LogCMK(torch.autograd.Function):
     @staticmethod
     def forward(ctx, m, k):
         ctx.save_for_backward(m, k)
-        Ive = torch.from_numpy(scipy.special.ive(m/2.-1, k.detach().numpy())).to(k.device)
-        return (m/2.-1)*torch.log(k) - torch.log(Ive) - (m/2)*np.log(2*np.pi)
-        
+        Ive = torch.from_numpy(scipy.special.ive(m / 2. - 1, k.detach().numpy())).to(k.device)
+        return (m / 2. - 1) * torch.log(k) - torch.log(Ive) - (m / 2) * np.log(2 * np.pi)
+
     @staticmethod
     def backward(ctx, grad_output):
         m, k = ctx.saved_tensors
-        grads = -((scipy.special.ive(m/2., k.detach().numpy()))/(scipy.special.ive(m/2.-1,k.detach().numpy())))
+        grads = -((scipy.special.ive(m / 2., k.detach().numpy())) / (scipy.special.ive(m / 2. - 1, k.detach().numpy())))
         return None, grad_output * torch.from_numpy(grads).to(k.device)
