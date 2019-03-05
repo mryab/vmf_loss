@@ -153,11 +153,10 @@ def train(args):
         path_src = pathlib.Path('truecased')
         path_dst = pathlib.Path('bpe')
         inp_vocab_size = 50000
-        out_vocab_size = 32000  # inferred from the paper
+        out_vocab_size = 16000  # inferred from the paper
     else:
         path_src = path_dst = pathlib.Path('bpe')
-        inp_vocab_size = 16000
-        out_vocab_size = 32000
+        inp_vocab_size = out_vocab_size = 16000
     path_field_pairs = list(zip((path_src, path_dst), (src_lang, tgt_lang)))
     train_dataset = TranslationDataset(
         args.dataset + '/',
