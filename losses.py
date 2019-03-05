@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch
 from torch.nn.functional import cosine_similarity, normalize
 import scipy.special
+import numpy as np
 
 
 class EmbeddingLoss(nn.Module):
@@ -71,11 +72,10 @@ class NLLvMFLossBase(EmbeddingLoss):
     def forward(self, preds, target):
         target_norm = self.tgt_embedding(target)
         mask = target.ne(self.pad_id)  # batch x seq
-
-        loss = - self._logcmk(self.emb_dim, preds.norm(p=2, dim=2)
-                              ) - self.reg_2 * (target_norm * preds).sum(dim=2)
+        loss = - self._logcmk(self.emb_dim, preds.norm(p=2, dim=1)
+                              ) - self.reg_2 * (target_norm * preds.transpose(1, 2)).sum(dim=2)
         if self.reg_1 > 0:
-            loss = loss + self.reg_1 * preds.norm(p=2, dim=2)
+            loss = loss + self.reg_1 * preds.norm(p=2, dim=1)
 
         return loss[mask].mean()
 
@@ -101,7 +101,7 @@ class NLLvMFApproxPaper(NLLvMFLossBase):
 
 class NLLvMFApproxFixed(NLLvMFLossBase):
     def __init__(self, tgt_voc, emb_dim, reg_1=0, reg_2=1):
-        super(NLLvMFLossPaperFixed, self).__init__(tgt_voc, emb_dim, reg_1, reg_2)
+        super(NLLvMFApproxFixed, self).__init__(tgt_voc, emb_dim, reg_1, reg_2)
 
     def _logcmk(self, m, z):
         v = m / 2. + 0.5
@@ -120,12 +120,14 @@ class NLLvMF(NLLvMFLossBase):
 class LogCMK(torch.autograd.Function):
     @staticmethod
     def forward(ctx, m, k):
-        ctx.save_for_backward(m, k)
-        Ive = torch.from_numpy(scipy.special.ive(m / 2. - 1, k.detach().numpy())).to(k.device)
+        ctx.save_for_backward(k)
+        ctx.m = m
+        Ive = torch.from_numpy(scipy.special.ive(m / 2. - 1, k.cpu().numpy())).to(k.device)
         return (m / 2. - 1) * torch.log(k) - torch.log(Ive) - (m / 2) * np.log(2 * np.pi)
 
     @staticmethod
     def backward(ctx, grad_output):
-        m, k = ctx.saved_tensors
-        grads = -((scipy.special.ive(m / 2., k.detach().numpy())) / (scipy.special.ive(m / 2. - 1, k.detach().numpy())))
+        k = ctx.saved_tensors[0]
+        m = ctx.m
+        grads = -((scipy.special.ive(m / 2., k.cpu().numpy())) / (scipy.special.ive(m / 2. - 1, k.cpu().numpy())))
         return None, grad_output * torch.from_numpy(grads).to(k.device)

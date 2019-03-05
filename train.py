@@ -210,7 +210,8 @@ def train(args):
                 vectors.dim,
                 unk_init=MeanInit(mean))
         tgt_field.vocab.vectors[tgt_field.vocab.stoi['<EOS>']] = torch.ones(vectors.dim)
-        tgt_field.vocab.vectors = nn.functional.normalize(tgt_field.vocab.vectors, p=2, dim=-1)
+        if args.loss != 'l2':
+            tgt_field.vocab.vectors = nn.functional.normalize(tgt_field.vocab.vectors, p=2, dim=-1)
         out_dim = vectors.dim
     model = Model(1024, 512, out_dim, src_field, tgt_field, 0.3 if args.loss == 'xent' else 0.0).to(device)
     # TODO change inp_dim for tied embeddings
@@ -223,9 +224,11 @@ def train(args):
     elif args.loss == 'maxmarg':
         criterion = losses.MaxMarginLoss(tgt_field, out_dim).to(device)
     elif args.loss == 'vmfapprox_paper':
-        criterion = losses.NLLvMFApproxPaper(tgt_field, out_dim).to(device)
+        criterion = losses.NLLvMFApproxPaper(tgt_field, out_dim, args.reg_1, args.reg_2).to(device)
     elif args.loss == 'vmfapprox_fixed':
-        criterion = losses.NLLvMFApproxFixed(tgt_field, out_dim).to(device)
+        criterion = losses.NLLvMFApproxFixed(tgt_field, out_dim, args.reg_1, args.reg_2).to(device)
+    elif args.loss == 'vmf':
+        criterion = losses.NLLvMF(tgt_field, out_dim, args.reg_1, args.reg_2).to(device)
     else:
         raise ValueError
     print('Starting training')
@@ -275,7 +278,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', choices=['de-en', 'en-fr', 'fr-en'], required=True)
     parser.add_argument('--token-type', choices=['word', 'bpe', 'word_bpe'], required=True)
-    parser.add_argument('--loss', choices=['xent', 'l2', 'cosine', 'maxmarg', 'vmfapprox_paper', 'vmfapprox_fixed'],
+    parser.add_argument('--loss', choices=['xent', 'l2', 'cosine', 'maxmarg', 'vmfapprox_paper', 'vmfapprox_fixed', 'vmf'],
                         required=True)
     parser.add_argument('--batch-size', default=64, type=int)
     parser.add_argument('--num-epoch', default=15, type=int)
@@ -283,6 +286,8 @@ def main():
     parser.add_argument('--emb-type', choices=['w2v', 'fasttext'], required=False)
     parser.add_argument('--emb-dir', type=str, required=False)
     parser.add_argument('--device-id', default=0, type=int)
+    parser.add_argument('--reg_1', default=0, type=float)
+    parser.add_argument('--reg_2', default=1, type=float)
     args = parser.parse_args()
     train(args)
 
