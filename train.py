@@ -183,7 +183,7 @@ def train(args):
             batch_size=args.batch_size,
             sort_key=lambda x: (len(x.src), len(x.trg)),
             sort_within_batch=True,
-            device=device,
+            # device=device,
     )
     val_iter = BucketIterator(
             val_dataset,
@@ -191,7 +191,7 @@ def train(args):
             train=False,
             sort_key=lambda x: (len(x.src), len(x.trg)),
             sort_within_batch=True,
-            device=device,
+            # device=device,
     )
     out_dim = out_vocab_size
     if args.loss != 'xent':
