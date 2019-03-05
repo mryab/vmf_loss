@@ -123,13 +123,13 @@ class Model(nn.Module):
         attention_scores = []
         for step in range(max_len):
             input_ = torch.cat((cur_emb, inp_feed), dim=1)
-            for i, layer in enumerate(self.layers):
+            for i, layer in enumerate(self.decoder.layers):
                 new_hidden, new_memory = layer(input_, (decoder_hidden[i], decoder_memory[i]))
-                input_ = self.dropout(new_hidden)
+                input_ = self.decoder.dropout(new_hidden)
                 decoder_hidden[i] = new_hidden
                 decoder_memory[i] = new_memory
-            out, attn_scores = self.attn(new_hidden, enc_out, enc_mask)
-            out = self.dropout(out)
+            out, attn_scores = self.decoder.attn(new_hidden, enc_out, enc_mask)
+            out = self.decoder.dropout(out)
             inp_feed = out
             if loss_type == 'xent':
                 pred_words = self.decoder.pred_proj(out).max(1)[1]
