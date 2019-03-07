@@ -196,7 +196,7 @@ def train(args):
     out_dim = out_vocab_size
     if args.loss != 'xent':
         # assign pretrained embeddings to trg_field
-        vectors = Vectors(name='corpus.fasttext.txt', cache=args.emb_dir)  # temporary path
+        vectors = Vectors(name=args.emb_type + '.' + src_lang , cache=args.emb_dir)  # temporary path
         mean = torch.zeros((vectors.dim,))
         num = 0
         for word, ind in vectors.stoi.items():
