@@ -86,7 +86,7 @@ def decode(args):
     out_dim = len(tgt_field.vocab)
     if args.loss != 'xent':
         # assign pretrained embeddings to trg_field
-        vectors = Vectors(name=args.emb_type + '.' + src_lang , cache=args.emb_dir)  # temporal path
+        vectors = Vectors(name=args.emb_type + '.' + tgt_lang , cache=args.emb_dir)  # temporal path
         mean = torch.zeros((vectors.dim,))
         num = 0
         for word, ind in vectors.stoi.items():
