@@ -69,7 +69,7 @@ class Decoder(nn.Module):
             ).from_pretrained(out_voc.vocab.vectors)
             self.output_emb.weight.requires_grad = False
             self.inp_proj = nn.Linear(out_dim, inp_emb_dim)
-            
+
         self.layers = nn.ModuleList(
                 [nn.LSTMCell(
                         hid_dim + inp_emb_dim if i == 0 else hid_dim,
@@ -135,7 +135,8 @@ class Model(nn.Module):
         inp_feed = cur_emb.new_zeros(bsz, self.decoder.hid_dim)
         decoder_hidden = [enc_h[i] for i in range(2)]
         decoder_memory = [enc_c[i] for i in range(2)]
-        decoder_outputs = []
+        decoder_outputs = torch.full((max_len, bsz), self.out_voc.vocab.stoi[self.out_voc.pad_token],
+                                     device=src_tokens.device, dtype=torch.long)
         attention_scores = []
         for step in range(max_len):
             input_ = torch.cat((cur_emb, inp_feed), dim=1)
@@ -155,9 +156,9 @@ class Model(nn.Module):
             cur_emb = self.decoder.output_emb(pred_words.to(src_tokens.device))
             if self.tied:
                 cur_emb = self.decoder.inp_proj(cur_emb)
-            decoder_outputs.append(pred_words)
+            decoder_outputs[step] = pred_words
             attention_scores.append(attn_scores)
-        res = torch.stack(decoder_outputs).transpose(1, 0)
+        res = decoder_outputs.transpose(1, 0)
         attn = torch.stack(attention_scores).permute(2, 0, 1)  # seq_len x nsrc x bsz -> bsz x seq_len x nsrc
         return res, attn
 

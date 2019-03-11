@@ -100,6 +100,23 @@ def decode(args):
         out_dim = vectors.dim
     model = Model(1024, 512, out_dim, src_field, tgt_field,
                   0.3 if args.loss == 'xent' else 0.0, tied=args.tied).to(device)
+
+    detokenizer = MosesDetokenizer()
+    detruecaser = MosesDetruecaser()
+    src_raw = []
+    gt = []
+    with open(pathlib.Path(args.dataset) / path_dst / f'test.{src_lang}') as test_file:
+        lines = test_file.read().splitlines()
+        for words in tqdm(lines):
+            src_raw.append([src_field.init_token] + words.split() + [src_field.eos_token])
+    with open(pathlib.Path(args.dataset) / path_dst / f'test.{tgt_lang}') as test_file:
+        lines = test_file.read().splitlines()
+        for words in tqdm(lines):
+            if args.token_type in ['bpe', 'word_bpe']:
+                words = words.replace('@@ ', '')
+            words = detruecaser.detruecase(words)
+            words = detokenizer.detokenize(words)
+            gt.append(words)
     path = pathlib.Path('checkpoints') / args.dataset / args.token_type / args.loss
     if args.loss != 'xent':
         path /= args.emb_type
@@ -115,53 +132,51 @@ def decode(args):
                 src_word, dst_word = line.strip().split()
                 word_dict[src_word] = dst_word
     res = []
-    detokenizer = MosesDetokenizer()
-    detruecaser = MosesDetruecaser()
 
-    def replace_unk_word(current_word, aligned_src):
+    def replace_unk_word(current_word, aligned_src, gt_src):
         if current_word == tgt_field.unk_token:
             aligned_word = src_field.vocab.itos[aligned_src]
             repl = word_dict.get(aligned_word)
             if repl is None:
-                return aligned_word
+                if gt_src in [src_field.init_token, src_field.eos_token]:
+                    return ''
+                return gt_src
             else:
                 return repl
         else:
             return current_word
 
     with torch.no_grad():
-        for batch in tqdm(test_iter):
+        for batch_num, batch in enumerate(tqdm(test_iter)):
             src, src_len = batch.src
             order = sorted(range(len(src_len)), key=src_len.__getitem__, reverse=True)
             src = src[order]
             src_len = src_len[order]
             rev_order = sorted(range(len(order)), key=order.__getitem__)
-            preds, attn = model.translate_greedy(src, src_len, max_len=150, loss_type=args.loss)
+            preds, attn = model.translate_greedy(src, src_len, max_len=100, loss_type=args.loss)
             max_attn, alignments = attn.max(2)
             preds = preds[rev_order]
             alignments = alignments[rev_order]
             words_for_alignments = src[rev_order][torch.arange(src.size(0))[:, None], alignments]
-            for sent, align in zip(preds, words_for_alignments):
+            for sent_num, (sent, align) in enumerate(zip(preds, words_for_alignments)):
                 words = [tgt_field.vocab.itos[token] for token in sent]
                 if tgt_field.eos_token in words:
-                    words = words[:words.index(tgt_field.eos_token)]
+                    cut_ind = words.index(tgt_field.eos_token)
+                    words = words[:cut_ind]
+                else:
+                    cut_ind = len(words)
                 if args.token_type == 'word':
-                    words = [replace_unk_word(word, align_for_word) for word, align_for_word in zip(words, align)]
+                    alignments_cut = alignments[sent_num][:cut_ind]
+                    gt_for_sent = src_raw[batch_num * args.batch_size + sent_num]
+                    gt_words_for_sent = [gt_for_sent[ind] for ind in alignments_cut]
+                    words = [replace_unk_word(word, align_for_word, gt_word_for_sent)
+                             for word, align_for_word, gt_word_for_sent in zip(words, align, gt_words_for_sent)]
                 words = ' '.join(words)
                 if args.token_type in ['bpe', 'word_bpe']:
                     words = words.replace('@@ ', '')
                 words = detruecaser.detruecase(words)
                 words = detokenizer.detokenize(words)
                 res.append(words)
-    gt = []
-    with open(pathlib.Path(args.dataset) / path_dst / f'test.{tgt_lang}') as test_file:
-        lines = test_file.read().splitlines()
-        for words in tqdm(lines):
-            if args.token_type in ['bpe', 'word_bpe']:
-                words = words.replace('@@ ', '')
-            words = detruecaser.detruecase(words)
-            words = detokenizer.detokenize(words)
-            gt.append(words)
 
     print(corpus_bleu(res, [gt]))
 
