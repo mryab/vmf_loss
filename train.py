@@ -236,6 +236,8 @@ def train(args):
     path = pathlib.Path('checkpoints') / args.dataset / args.token_type / args.loss
     if args.loss != 'xent':
         path /= args.emb_type
+    if args.tied:
+        path /= 'tied'
     os.makedirs(path, exist_ok=True)
     init_epoch = 0
 

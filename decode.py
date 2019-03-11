@@ -120,6 +120,8 @@ def decode(args):
     path = pathlib.Path('checkpoints') / args.dataset / args.token_type / args.loss
     if args.loss != 'xent':
         path /= args.emb_type
+    if args.tied:
+        path /= 'tied'
     path /= f'checkpoint_{args.eval_checkpoint}.pt'
     assert os.path.exists(path), 'No checkpoint exists at a given path'
     checkpoint = torch.load(path)
