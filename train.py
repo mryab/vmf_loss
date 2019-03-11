@@ -213,7 +213,7 @@ def train(args):
         if args.loss != 'l2':
             tgt_field.vocab.vectors = nn.functional.normalize(tgt_field.vocab.vectors, p=2, dim=-1)
         out_dim = vectors.dim
-    model = Model(1024, 512, out_dim, src_field, tgt_field, 0.3 if args.loss == 'xent' else 0.0).to(device)
+    model = Model(1024, 512, out_dim, src_field, tgt_field, 0.3 if args.loss == 'xent' else 0.0, args.tied).to(device)
     # TODO change inp_dim for tied embeddings
     if args.loss == 'xent':
         criterion = nn.CrossEntropyLoss(ignore_index=tgt_field.vocab.stoi[tgt_field.pad_token]).to(device)
@@ -288,6 +288,8 @@ def main():
     parser.add_argument('--device-id', default=0, type=int)
     parser.add_argument('--reg_1', default=0, type=float)
     parser.add_argument('--reg_2', default=1, type=float)
+    parser.add_argument('--tied', dest='tied', action='store_true')
+    parser.set_defaults(tied=False)
     args = parser.parse_args()
     train(args)
 

@@ -52,13 +52,24 @@ class AttentionLayer(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, inp_emb_dim, hid_dim, out_dim, out_voc, dropout):
+    def __init__(self, inp_emb_dim, hid_dim, out_dim, out_voc, dropout, tied):
         super().__init__()
-        self.output_emb = nn.Embedding(
-                len(out_voc.vocab),
-                inp_emb_dim,
-                padding_idx=out_voc.vocab.stoi[out_voc.pad_token],
-        )
+        self.tied = tied
+        if not tied:
+            self.output_emb = nn.Embedding(
+                    len(out_voc.vocab),
+                    inp_emb_dim,
+                    padding_idx=out_voc.vocab.stoi[out_voc.pad_token],
+            )
+        else:
+            self.output_emb = nn.Embedding(
+                    len(out_voc.vocab),
+                    out_dim,
+                    padding_idx=out_voc.vocab.stoi[out_voc.pad_token],
+            ).from_pretrained(out_voc.vocab.vectors)
+            self.output_emb.weight.requires_grad = False
+            self.inp_proj = nn.Linear(out_dim, inp_emb_dim)
+            
         self.layers = nn.ModuleList(
                 [nn.LSTMCell(
                         hid_dim + inp_emb_dim if i == 0 else hid_dim,
@@ -71,6 +82,8 @@ class Decoder(nn.Module):
 
     def forward(self, enc_out, enc_hid, enc_memory, encoder_padding_mask, dst):
         dst_emb = self.output_emb(dst)
+        if self.tied:
+            dst_emb = self.inp_proj(dst_emb)
         seqlen, bsz = dst.size()
         inp_feed = dst_emb.new_zeros(bsz, self.hid_dim)
         decoder_hidden = [enc_hid[i] for i in range(2)]
@@ -93,12 +106,13 @@ class Decoder(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, hid_dim, inp_emb_dim, out_dim, inp_voc, out_voc, dropout):
+    def __init__(self, hid_dim, inp_emb_dim, out_dim, inp_voc, out_voc, dropout, tied):
         super().__init__()
         self.encoder = Encoder(hid_dim, inp_emb_dim, inp_voc, dropout)
-        self.decoder = Decoder(inp_emb_dim, hid_dim, out_dim, out_voc, dropout)
+        self.decoder = Decoder(inp_emb_dim, hid_dim, out_dim, out_voc, dropout, tied)
         self.pad_idx = inp_voc.vocab.stoi[inp_voc.pad_token]
         self.out_voc = out_voc
+        self.tied = tied
 
     def forward(self, src_tokens, src_lengths, dst):
         src_tokens = src_tokens.transpose(0, 1)
@@ -116,6 +130,8 @@ class Model(nn.Module):
         cur_word = torch.full((bsz,), self.out_voc.vocab.stoi[self.out_voc.init_token],
                               device=src_tokens.device, dtype=torch.long)
         cur_emb = self.decoder.output_emb(cur_word)
+        if self.tied:
+            cur_emb = self.decoder.inp_proj(cur_emb)
         inp_feed = cur_emb.new_zeros(bsz, self.decoder.hid_dim)
         decoder_hidden = [enc_h[i] for i in range(2)]
         decoder_memory = [enc_c[i] for i in range(2)]
@@ -137,6 +153,8 @@ class Model(nn.Module):
                 distances = self.compute_distances(self.decoder.pred_proj(out), loss_type)
                 pred_words = distances.min(1)[1]
             cur_emb = self.decoder.output_emb(pred_words.to(src_tokens.device))
+            if self.tied:
+                cur_emb = self.decoder.inp_proj(cur_emb)
             decoder_outputs.append(pred_words)
             attention_scores.append(attn_scores)
         res = torch.stack(decoder_outputs).transpose(1, 0)
