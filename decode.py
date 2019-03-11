@@ -5,15 +5,14 @@ import random
 
 import torch
 import torch.nn as nn
+from sacrebleu import corpus_bleu
+from sacremoses import MosesDetokenizer, MosesDetruecaser
 from torchtext.data import BucketIterator, Field
 from torchtext.datasets import TranslationDataset
 from torchtext.vocab import Vectors
 from tqdm import tqdm
 
 from model import Model
-
-from sacremoses import MosesDetokenizer, MosesDetruecaser
-from sacrebleu import corpus_bleu
 
 
 class MeanInit:
@@ -86,7 +85,7 @@ def decode(args):
     out_dim = len(tgt_field.vocab)
     if args.loss != 'xent':
         # assign pretrained embeddings to trg_field
-        vectors = Vectors(name=args.emb_type + '.' + tgt_lang , cache=args.emb_dir)  # temporal path
+        vectors = Vectors(name=args.emb_type + '.' + tgt_lang, cache=args.emb_dir)  # temporal path
         mean = torch.zeros((vectors.dim,))
         num = 0
         for word, ind in vectors.stoi.items():
@@ -99,7 +98,8 @@ def decode(args):
         if args.loss != 'l2':
             tgt_field.vocab.vectors = nn.functional.normalize(tgt_field.vocab.vectors, p=2, dim=-1)
         out_dim = vectors.dim
-    model = Model(1024, 512, out_dim, src_field, tgt_field, 0.3 if args.loss == 'xent' else 0.0).to(device)
+    model = Model(1024, 512, out_dim, src_field, tgt_field,
+                  0.3 if args.loss == 'xent' else 0.0, tied=args.tied).to(device)
     path = pathlib.Path('checkpoints') / args.dataset / args.token_type / args.loss
     if args.loss != 'xent':
         path /= args.emb_type
@@ -170,12 +170,15 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', choices=['de-en', 'en-fr', 'fr-en'], required=True)
     parser.add_argument('--token-type', choices=['word', 'bpe', 'word_bpe'], required=True)
-    parser.add_argument('--loss', choices=['xent', 'l2', 'cosine', 'maxmarg', 'vmfapprox_paper', 'vmfapprox_fixed', 'vmf'], required=True)
+    parser.add_argument('--loss',
+                        choices=['xent', 'l2', 'cosine', 'maxmarg', 'vmfapprox_paper', 'vmfapprox_fixed', 'vmf'],
+                        required=True)
     parser.add_argument('--batch-size', default=64, type=int)
     parser.add_argument('--emb-type', choices=['w2v', 'fasttext'], required=False)
     parser.add_argument('--emb-dir', type=str, required=False)
     parser.add_argument('--device-id', default=0, type=int)
     parser.add_argument('--eval-checkpoint', default='best', type=str)
+    parser.add_argument('--tied', action='store_true')
     args = parser.parse_args()
     decode(args)
 

@@ -11,8 +11,8 @@ from torchtext.datasets import TranslationDataset
 from torchtext.vocab import Vectors
 from tqdm import tqdm
 
-from model import Model
 import losses
+from model import Model
 
 
 class MeanInit:
@@ -196,7 +196,7 @@ def train(args):
     out_dim = out_vocab_size
     if args.loss != 'xent':
         # assign pretrained embeddings to trg_field
-        vectors = Vectors(name=args.emb_type + '.' + tgt_lang , cache=args.emb_dir)  # temporary path
+        vectors = Vectors(name=args.emb_type + '.' + tgt_lang, cache=args.emb_dir)  # temporary path
         mean = torch.zeros((vectors.dim,))
         num = 0
         for word, ind in vectors.stoi.items():
@@ -278,7 +278,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', choices=['de-en', 'en-fr', 'fr-en'], required=True)
     parser.add_argument('--token-type', choices=['word', 'bpe', 'word_bpe'], required=True)
-    parser.add_argument('--loss', choices=['xent', 'l2', 'cosine', 'maxmarg', 'vmfapprox_paper', 'vmfapprox_fixed', 'vmf'],
+    parser.add_argument('--loss',
+                        choices=['xent', 'l2', 'cosine', 'maxmarg', 'vmfapprox_paper', 'vmfapprox_fixed', 'vmf'],
                         required=True)
     parser.add_argument('--batch-size', default=64, type=int)
     parser.add_argument('--num-epoch', default=15, type=int)
@@ -288,8 +289,7 @@ def main():
     parser.add_argument('--device-id', default=0, type=int)
     parser.add_argument('--reg_1', default=0, type=float)
     parser.add_argument('--reg_2', default=1, type=float)
-    parser.add_argument('--tied', dest='tied', action='store_true')
-    parser.set_defaults(tied=False)
+    parser.add_argument('--tied', action='store_true')
     args = parser.parse_args()
     train(args)
 

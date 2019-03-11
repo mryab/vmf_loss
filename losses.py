@@ -1,8 +1,8 @@
-import torch.nn as nn
-import torch
-from torch.nn.functional import cosine_similarity, normalize
-import scipy.special
 import numpy as np
+import scipy.special
+import torch
+import torch.nn as nn
+from torch.nn.functional import cosine_similarity, normalize
 
 
 class EmbeddingLoss(nn.Module):
