@@ -141,7 +141,7 @@ def decode(args):
     if args.tied:
         path /= 'tied'
     if args.loss in ['vmfapprox_paper', 'vmfapprox_fixed', 'vmf']:
-        path /= f'reg1{args.reg_1}_reg2{args.reg2}'
+        path /= f'reg1{args.reg_1}_reg2{args.reg_2}'
     if args.eval_checkpoint != 'all':
         paths = [path / f'checkpoint_{args.eval_checkpoint}.pt']
     else:
