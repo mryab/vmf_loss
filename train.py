@@ -97,7 +97,6 @@ def train_epoch(model, train_iter, optimizer, criterion, wall_timer):
     time_per_batch = TimeMeter()
     for batch in pbar:
         loss = compute_loss(model, batch, criterion, optimizer)
-        torch.cuda.empty_cache()
         pbar.set_postfix(loss=loss)
         total_loss += loss
         samples_per_sec.update(len(batch))
@@ -259,6 +258,8 @@ def train(args):
     else:
         wall_timer = StopwatchMeter()
         best_val_loss = validate(model, val_iter, criterion, wall_timer)
+        for param in model.parameters():
+            param.data.uniform_(-0.1, 0.1)
     for epoch in range(init_epoch, args.num_epoch):
         train_epoch(model, train_iter, optimizer, criterion, wall_timer)
         val_loss = validate(model, val_iter, criterion, wall_timer)
