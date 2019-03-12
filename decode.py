@@ -85,7 +85,7 @@ def decode(args):
     out_dim = len(tgt_field.vocab)
     if args.loss != 'xent':
         # assign pretrained embeddings to trg_field
-        vectors = Vectors(name=args.emb_type + '.' + tgt_lang, cache=args.emb_dir)  # temporal path
+        vectors = Vectors(name=args.emb_type + '.' + tgt_lang, cache=args.emb_dir)
         mean = torch.zeros((vectors.dim,))
         num = 0
         for word, ind in vectors.stoi.items():
@@ -140,6 +140,8 @@ def decode(args):
         path /= args.emb_type
     if args.tied:
         path /= 'tied'
+    if args.loss in ['vmfapprox_paper', 'vmfapprox_fixed', 'vmf']:
+        path /= f'reg1{args.reg_1}_reg2{args.reg2}'
     if args.eval_checkpoint != 'all':
         paths = [path / f'checkpoint_{args.eval_checkpoint}.pt']
     else:
@@ -201,6 +203,8 @@ def main():
     parser.add_argument('--emb-dir', type=str, required=False)
     parser.add_argument('--device-id', default=0, type=int)
     parser.add_argument('--eval-checkpoint', default='best', type=str)
+    parser.add_argument('--reg_1', default=0, type=float)
+    parser.add_argument('--reg_2', default=1, type=float)
     parser.add_argument('--tied', action='store_true')
     args = parser.parse_args()
     decode(args)
