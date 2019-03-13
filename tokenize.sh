@@ -28,31 +28,31 @@ for lg1 in ${pair_lgs}; do
     for lg2 in ${pair_lgs}; do
         #tokenizing
         cat "$lg1-$lg2/parsed/IWSLT16.TED.tst2013.$lg1-$lg2.$lg1.xml" "$lg1-$lg2/parsed/IWSLT16.TED.tst2014.$lg1-$lg2.$lg1.xml" > "$lg1-$lg2/parsed/dev.$lg1" || continue
-        sacremoses tokenize -j 4 < "$lg1-$lg2/parsed/dev.$lg1" > "$lg1-$lg2/tokenized/dev.$lg1"
+        sacremoses tokenize -j 8 -l $lg1 < "$lg1-$lg2/parsed/dev.$lg1" > "$lg1-$lg2/tokenized/dev.$lg1"
         cat "$lg1-$lg2/parsed/IWSLT16.TED.tst2013.$lg1-$lg2.$lg2.xml" "$lg1-$lg2/parsed/IWSLT16.TED.tst2014.$lg1-$lg2.$lg2.xml" > "$lg1-$lg2/parsed/dev.$lg2"
-        sacremoses tokenize -j 4 < "$lg1-$lg2/parsed/dev.$lg2" > "$lg1-$lg2/tokenized/dev.$lg2"
+        sacremoses tokenize -j 8 -l $lg2 < "$lg1-$lg2/parsed/dev.$lg2" > "$lg1-$lg2/tokenized/dev.$lg2"
         
         cat "$lg1-$lg2/parsed/IWSLT16.TED.tst2015.$lg1-$lg2.$lg1.xml" "$lg1-$lg2/parsed/IWSLT16.TED.tst2016.$lg1-$lg2.$lg1.xml" > "$lg1-$lg2/parsed/test.$lg1"
-        sacremoses tokenize -j 4 < "$lg1-$lg2/parsed/test.$lg1" > "$lg1-$lg2/tokenized/test.$lg1"
+        sacremoses tokenize -j 8 -l $lg1 < "$lg1-$lg2/parsed/test.$lg1" > "$lg1-$lg2/tokenized/test.$lg1"
         cat "$lg1-$lg2/parsed/IWSLT16.TED.tst2015.$lg1-$lg2.$lg2.xml" "$lg1-$lg2/parsed/IWSLT16.TED.tst2016.$lg1-$lg2.$lg2.xml" > "$lg1-$lg2/parsed/test.$lg2"
-        sacremoses tokenize -j 4 < "$lg1-$lg2/parsed/test.$lg2" > "$lg1-$lg2/tokenized/test.$lg2"
+        sacremoses tokenize -j 8 -l $lg2 < "$lg1-$lg2/parsed/test.$lg2" > "$lg1-$lg2/tokenized/test.$lg2"
         
-        sacremoses tokenize -j 4 < "$lg1-$lg2/parsed/train.tags.$lg1-$lg2.$lg1" > "$lg1-$lg2/tokenized/train.tags.$lg1-$lg2.$lg1"
-        sacremoses tokenize -j 4 < "$lg1-$lg2/parsed/train.tags.$lg1-$lg2.$lg2" > "$lg1-$lg2/tokenized/train.tags.$lg1-$lg2.$lg2"
+        sacremoses tokenize -j 8 -l $lg1 < "$lg1-$lg2/parsed/train.tags.$lg1-$lg2.$lg1" > "$lg1-$lg2/tokenized/train.tags.$lg1-$lg2.$lg1"
+        sacremoses tokenize -j 8 -l $lg2 < "$lg1-$lg2/parsed/train.tags.$lg1-$lg2.$lg2" > "$lg1-$lg2/tokenized/train.tags.$lg1-$lg2.$lg2"
         rm -rf "./$lg1-$lg2/parsed"
         
         #truecasing
-        sacremoses train-truecase -m "./$lg1-$lg2/truecased/model.$lg1" -j 4 < "./$lg1-$lg2/tokenized/train.tags.$lg1-$lg2.$lg1"
-        sacremoses train-truecase -m "./$lg1-$lg2/truecased/model.$lg2" -j 4 < "./$lg1-$lg2/tokenized/train.tags.$lg1-$lg2.$lg2"
+        sacremoses train-truecase -m "./$lg1-$lg2/truecased/model.$lg1" -j 8 < "./$lg1-$lg2/tokenized/train.tags.$lg1-$lg2.$lg1"
+        sacremoses train-truecase -m "./$lg1-$lg2/truecased/model.$lg2" -j 8 < "./$lg1-$lg2/tokenized/train.tags.$lg1-$lg2.$lg2"
         
-        sacremoses truecase -m "./$lg1-$lg2/truecased/model.$lg1" -j 4 < "./$lg1-$lg2/tokenized/train.tags.$lg1-$lg2.$lg1" > "./$lg1-$lg2/truecased/train.$lg1-$lg2.$lg1"
-        sacremoses truecase -m "./$lg1-$lg2/truecased/model.$lg2" -j 4 < "./$lg1-$lg2/tokenized/train.tags.$lg1-$lg2.$lg2" > "./$lg1-$lg2/truecased/train.$lg1-$lg2.$lg2"
+        sacremoses truecase -m "./$lg1-$lg2/truecased/model.$lg1" -j 8 < "./$lg1-$lg2/tokenized/train.tags.$lg1-$lg2.$lg1" > "./$lg1-$lg2/truecased/train.$lg1-$lg2.$lg1"
+        sacremoses truecase -m "./$lg1-$lg2/truecased/model.$lg2" -j 8 < "./$lg1-$lg2/tokenized/train.tags.$lg1-$lg2.$lg2" > "./$lg1-$lg2/truecased/train.$lg1-$lg2.$lg2"
         
-        sacremoses truecase -m "./$lg1-$lg2/truecased/model.$lg1" -j 4 < "./$lg1-$lg2/tokenized/dev.$lg1" > "./$lg1-$lg2/truecased/dev.$lg1"
-        sacremoses truecase -m "./$lg1-$lg2/truecased/model.$lg2" -j 4 < "./$lg1-$lg2/tokenized/dev.$lg2" > "./$lg1-$lg2/truecased/dev.$lg2"
+        sacremoses truecase -m "./$lg1-$lg2/truecased/model.$lg1" -j 8 < "./$lg1-$lg2/tokenized/dev.$lg1" > "./$lg1-$lg2/truecased/dev.$lg1"
+        sacremoses truecase -m "./$lg1-$lg2/truecased/model.$lg2" -j 8 < "./$lg1-$lg2/tokenized/dev.$lg2" > "./$lg1-$lg2/truecased/dev.$lg2"
         
-        sacremoses truecase -m "./$lg1-$lg2/truecased/model.$lg1" -j 4 < "./$lg1-$lg2/tokenized/test.$lg1" > "./$lg1-$lg2/truecased/test.$lg1"
-        sacremoses truecase -m "./$lg1-$lg2/truecased/model.$lg2" -j 4 < "./$lg1-$lg2/tokenized/test.$lg2" > "./$lg1-$lg2/truecased/test.$lg2"
+        sacremoses truecase -m "./$lg1-$lg2/truecased/model.$lg1" -j 8 < "./$lg1-$lg2/tokenized/test.$lg1" > "./$lg1-$lg2/truecased/test.$lg1"
+        sacremoses truecase -m "./$lg1-$lg2/truecased/model.$lg2" -j 8 < "./$lg1-$lg2/tokenized/test.$lg2" > "./$lg1-$lg2/truecased/test.$lg2"
         rm -rf "./$lg1-$lg2/tokenized"
     done
 done

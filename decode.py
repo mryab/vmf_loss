@@ -101,7 +101,7 @@ def decode(args):
     model = Model(1024, 512, out_dim, src_field, tgt_field,
                   0.3 if args.loss == 'xent' else 0.0, tied=args.tied).to(device)
 
-    detokenizer = MosesDetokenizer()
+    detokenizer = MosesDetokenizer(lang=tgt_lang)
     detruecaser = MosesDetruecaser()
     src_raw = []
     gt = []
@@ -149,7 +149,7 @@ def decode(args):
         paths.remove(path / 'checkpoint_last.pt')
     result_dict = {}
     for path in tqdm(paths):
-        assert os.path.exists(path), 'No checkpoint exists at a given path'
+        assert os.path.exists(path), 'No checkpoint exists at a given path: {}'.format(path)
         checkpoint = torch.load(path)
         model.load_state_dict(checkpoint['model'])
         model.eval()
