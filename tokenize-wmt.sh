@@ -9,7 +9,7 @@ for lg in ${lgs}; do
     fi
     dir="./wmt-$lg/*"
     for file in ${dir}; do
-        sacremoses tokenize -j 20 < "$file" > "./wmt-$lg/tok/$(basename "$file")"
+        sacremoses tokenize -j 20 -l ${lg} < "$file" > "./wmt-$lg/tok/$(basename "$file")"
     done
     
     if [[ ! -d "./wmt-$lg/truecased" ]]; then
