@@ -174,6 +174,8 @@ class Model(nn.Module):
             r_voc = torch.norm(vecs, dim=1).unsqueeze(0) ** 2
             r_scal_prod = 2 * output_vecs.matmul(vecs.transpose(0, 1))
             return r_out + r_voc - r_scal_prod
-        else:
+        elif loss_type == 'cosine' or loss_type == 'maxmarg':
             out_ves_norm = nn.functional.normalize(output_vecs, p=2, dim=1)
             return 1 - out_ves_norm.matmul(vecs.transpose(0, 1))
+        else:
+            return - output_vecs.matmul(vecs.transpose(0, 1))
