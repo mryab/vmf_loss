@@ -289,7 +289,7 @@ def main():
     parser.add_argument('--num-epoch', default=15, type=int)
     parser.add_argument('--lr', default=0.0002, type=float)
     parser.add_argument('--emb-type', choices=['w2v', 'fasttext'], required=False)
-    parser.add_argument('--emb-dir', type=str, required=False)
+    parser.add_argument('--emb-dir', default='.', type=str)
     parser.add_argument('--device-id', default=0, type=int)
     parser.add_argument('--reg_1', default=0, type=float)
     parser.add_argument('--reg_2', default=1, type=float)
