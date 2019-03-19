@@ -11,9 +11,9 @@ This repository contains the unofficial code for the paper
   
   
   # Quick Start
-  ##Preprocessing the data
+  ## Preprocessing the data
 	
-* Tokenization and Truecasing (Using [Moses Scripts](https://github.com/moses-smt/mosesdecoder))
+  * Tokenization and Truecasing (Using [Moses Scripts](https://github.com/moses-smt/mosesdecoder))
 	
   ISWLT data
 ```
@@ -21,11 +21,13 @@ This repository contains the unofficial code for the paper
   bash tokenize.sh
   bash bpeize.sh
 ```
+
   WMT data for embeddings
-  	```
+  
+```
   bash get_data_wmt.sh
   bash tokenize_wmt.sh
-	```
+```
   
   ## Training example
   ```
@@ -48,7 +50,7 @@ This repository contains the unofficial code for the paper
 	 --tied
  ```
     
-   ##Evaluation example
+   ## Evaluation example
    
     ```
     need to specify training parameters
