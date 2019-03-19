@@ -112,8 +112,8 @@ class LogCMK(torch.autograd.Function):
         ctx.save_for_backward(k)
         ctx.m = m
         k = k.double()
-        Ive = torch.from_numpy(scipy.special.ive(m / 2. - 1, k.cpu().numpy())).to(k.device)
-        return ((m / 2. - 1) * torch.log(k) - torch.log(Ive) - (m / 2) * np.log(2 * np.pi)).float()
+        ive = torch.from_numpy(scipy.special.ive(m / 2. - 1, k.cpu().numpy())).to(k.device)
+        return ((m / 2. - 1) * torch.log(k) - torch.log(ive) - (m / 2) * np.log(2 * np.pi)).float()
 
     @staticmethod
     def backward(ctx, grad_output):

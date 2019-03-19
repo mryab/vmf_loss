@@ -85,6 +85,7 @@ def compute_loss(model, batch, criterion, optimizer=None):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        # torch.cuda.empty_cache()
     return loss.item()
 
 
@@ -241,10 +242,10 @@ def train(args):
     os.makedirs(path, exist_ok=True)
     init_epoch = 0
 
-    dummy_src = torch.zeros((args.batch_size, 110), dtype=torch.long, device=device)
+    dummy_src = torch.zeros((args.batch_size, 100), dtype=torch.long, device=device)
     dummy_src[:, -1] = 3
-    dummy_src_lengths = torch.full((args.batch_size,), 110, dtype=torch.long, device=device)
-    dummy_dst = torch.zeros((args.batch_size, 110), dtype=torch.long, device=device)
+    dummy_src_lengths = torch.full((args.batch_size,), 100, dtype=torch.long, device=device)
+    dummy_dst = torch.zeros((args.batch_size, 100), dtype=torch.long, device=device)
     dummy_dst[:, -1] = 3
 
     train_dummy(model, criterion, optimizer, (dummy_src, dummy_src_lengths, dummy_dst))
