@@ -82,7 +82,7 @@ def decode(args):
             sort_within_batch=False,  # ensure correct order
             device=device,
     )
-    out_dim = len(tgt_field.vocab)
+    out_dim = out_vocab_size
     if args.loss != 'xent':
         # assign pretrained embeddings to trg_field
         vectors = Vectors(name=args.emb_type + '.' + tgt_lang, cache=args.emb_dir)
@@ -148,6 +148,7 @@ def decode(args):
         paths = sorted(list(path.glob('checkpoint_*.pt')))
         paths.remove(path / 'checkpoint_last.pt')
     result_dict = {}
+    time_dict = {}
     for path in tqdm(paths):
         assert os.path.exists(path), 'No checkpoint exists at a given path: {}'.format(path)
         checkpoint = torch.load(path)
@@ -186,9 +187,10 @@ def decode(args):
                     words = detokenizer.detokenize(words)
                     res.append(words)
         result_dict[path.stem.split('_')[1]] = corpus_bleu(res, [gt]).score
+        time_dict[path.stem.split('_')[1]] = checkpoint['train_wall']
     print('')
     for checkpoint, bleu in sorted(result_dict.items(), key=lambda x: x[0] if len(x[0]) > 1 else f'0{x[0]}'):
-        print(f'{checkpoint}\tBLEU={bleu:.3f}')
+        print(f'{checkpoint}\tBLEU={bleu:.3f}\tTime={time_dict[checkpoint]:.3f}')
 
 
 def main():
