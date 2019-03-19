@@ -12,9 +12,7 @@ This repository contains the unofficial implementation of the paper
   
   # Quick Start
   ## Preprocessing the data
-	
-  * Tokenization and Truecasing (Using [Moses Scripts](https://github.com/moses-smt/mosesdecoder))
-	
+  
   ISWLT data
 ```
   bash get_data.sh
