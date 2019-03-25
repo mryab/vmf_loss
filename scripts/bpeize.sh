@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 declare -a lang_pairs=("de-en" "en-fr" "fr-en")
 
 for pair in ${lang_pairs[@]}; do

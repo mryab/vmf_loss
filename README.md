@@ -15,16 +15,16 @@ This repository contains the unofficial implementation of the paper
   
   ISWLT data
 ```
-  bash get_data.sh
-  bash tokenize.sh
-  bash bpeize.sh
+  bash scripts/get_data.sh
+  bash scripts/tokenize.sh
+  bash scripts/bpeize.sh
 ```
 
   WMT data for embeddings
   
 ```
-  bash get_data_wmt.sh
-  bash tokenize_wmt.sh
+  bash scripts/get_data_wmt.sh
+  bash scripts/tokenize_wmt.sh
 ```
   
   ## Training example

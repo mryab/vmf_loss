@@ -1,12 +1,12 @@
 #!/bin/bash
 
-bash ./get_data.sh
-bash ./tokenize.sh
-bash ./get_data_wmt.sh
-bash ./tokenize_wmt.sh
-bash ./bpeize.sh
+bash scripts/get_data.sh
+bash scripts/tokenize.sh
+bash scripts/get_data_wmt.sh
+bash scripts/tokenize_wmt.sh
+bash scripts/bpeize.sh
 
-bash ./align_data.sh
+bash scripts/align_data.sh
 python3 dicts_from_alignment.py --datasets de-en,en-fr,fr-en
 
 declare -a lang_pairs=("de-en" "en-fr" "fr-en")
