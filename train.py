@@ -280,21 +280,7 @@ def train(args):
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', choices=['de-en', 'en-fr', 'fr-en'], required=True)
-    parser.add_argument('--token-type', choices=['word', 'bpe', 'word_bpe'], required=True)
-    parser.add_argument('--loss',
-                        choices=['xent', 'l2', 'cosine', 'maxmarg', 'vmfapprox_paper', 'vmfapprox_fixed', 'vmf'],
-                        required=True)
-    parser.add_argument('--batch-size', default=64, type=int)
-    parser.add_argument('--num-epoch', default=15, type=int)
-    parser.add_argument('--lr', default=0.0002, type=float)
-    parser.add_argument('--emb-type', choices=['w2v', 'fasttext'], required=False)
-    parser.add_argument('--emb-dir', default='.', type=str)
-    parser.add_argument('--device-id', default=0, type=int)
-    parser.add_argument('--reg_1', default=0, type=float)
-    parser.add_argument('--reg_2', default=1, type=float)
-    parser.add_argument('--tied', action='store_true')
+    parser = options.create_training_parser()
     args = parser.parse_args()
     train(args)
 

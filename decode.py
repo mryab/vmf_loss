@@ -194,20 +194,7 @@ def decode(args):
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', choices=['de-en', 'en-fr', 'fr-en'], required=True)
-    parser.add_argument('--token-type', choices=['word', 'bpe', 'word_bpe'], required=True)
-    parser.add_argument('--loss',
-                        choices=['xent', 'l2', 'cosine', 'maxmarg', 'vmfapprox_paper', 'vmfapprox_fixed', 'vmf'],
-                        required=True)
-    parser.add_argument('--batch-size', default=64, type=int)
-    parser.add_argument('--emb-type', choices=['w2v', 'fasttext'], required=False)
-    parser.add_argument('--emb-dir', type=str, required=False)
-    parser.add_argument('--device-id', default=0, type=int)
-    parser.add_argument('--eval-checkpoint', default='best', type=str)
-    parser.add_argument('--reg_1', default=0, type=float)
-    parser.add_argument('--reg_2', default=1, type=float)
-    parser.add_argument('--tied', action='store_true')
+    parser = options.create_evaluation_parser()
     args = parser.parse_args()
     decode(args)
 
