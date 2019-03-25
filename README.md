@@ -1,4 +1,4 @@
-This repository contains the unofficial implementation of the paper
+This repository contains an unofficial implementation of the paper
 	
 > [Von Mises-Fisher Loss for Training Sequence to Sequence Models with Continuous Outputs](https://arxiv.org/pdf/1812.04616.pdf) _Sachin Kumar_ and _Yulia Tsvetkov_
   
@@ -8,12 +8,13 @@ This repository contains the unofficial implementation of the paper
   * Pytorch 1.0
   * torchtext 0.3.1
   * sacremoses 0.0.10
+  * [fast-align](https://github.com/clab/fast_align) 
   
   
   # Quick Start
   ## Preprocessing the data
   
-  ISWLT data
+  IWSLT data
 ```
   bash scripts/get_data.sh
   bash scripts/tokenize.sh
@@ -27,7 +28,7 @@ This repository contains the unofficial implementation of the paper
   bash scripts/tokenize_wmt.sh
 ```
   
-  ## Training example
+  ## Training
 ```
   python3 train.py --dataset de-en --token_type word --loss vmf --emb-type w2v --tied --reg1 1e-3 --reg2 0.1
 ```
@@ -48,10 +49,9 @@ This repository contains the unofficial implementation of the paper
 	 --tied
 ```
     
-   ## Evaluation example
+   ## Evaluation
    
 ```
-    need to specify training parameters
     python3 decode.py --dataset de-en --token-type word --loss vmf --emb-type w2v --batch-size 2048 --tied --reg1 1e-3 --reg2 0.1 --eval-checkpoint all 
 ```
     
