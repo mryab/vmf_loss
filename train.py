@@ -1,86 +1,19 @@
-import argparse
 import os
-import pathlib
-import random
-import time
 
 import torch
-import torch.nn as nn
-from torchtext.data import BucketIterator, Field
-from torchtext.datasets import TranslationDataset
-from torchtext.vocab import Vectors
 from tqdm import tqdm
 
 import losses
+import options
 from model import Model
-
-
-class MeanInit:
-    def __init__(self, init_vector):
-        self.init_vector = init_vector
-
-    def __call__(self, tensor):
-        return tensor.zero_() + self.init_vector
-
-
-class TimeMeter(object):
-
-    def __init__(self):
-        self.start = time.time()
-        self.n = 0
-
-    def update(self, val=1):
-        self.n += val
-
-    def avg(self):
-        return self.n / self.elapsed_time()
-
-    def elapsed_time(self):
-        return time.time() - self.start
-
-
-class StopwatchMeter(object):
-
-    def __init__(self, sum_=0):
-        self.sum = sum_
-        self.start_time = None
-
-    def start(self):
-        self.start_time = time.time()
-
-    def stop(self):
-        if self.start_time is not None:
-            delta = time.time() - self.start_time
-            self.sum += delta
-            self.start_time = None
-
-    def reset(self):
-        self.sum = 0
-        self.start_time = None
-
-
-def filter_pred(example):
-    return len(example.src) <= 100 and len(example.trg) <= 100
-
-
-def train_dummy(model, criterion, optimizer, dummy_batch):
-    model.train()
-    dummy_src, dummy_src_lengths, dummy_dst = dummy_batch
-    outputs_voc = model(dummy_src, dummy_src_lengths, dummy_dst[:, :-1])
-    loss = criterion(outputs_voc, dummy_dst[:, 1:])
-    loss.backward()
-    optimizer.zero_grad()
+from util import data, misc
 
 
 def compute_loss(model, batch, criterion, optimizer=None):
     src, src_lengths = batch.src
     dst, dst_lengths = batch.trg
-    src = src.cuda()
-    dst = dst.cuda()
-    src_lengths = src_lengths.cuda()
     outputs_voc = model(src, src_lengths, dst[:, :-1])
-    target = dst[:, 1:]
-    loss = criterion(outputs_voc, target)
+    loss = criterion(outputs_voc, dst[:, 1:])
     if optimizer is not None:
         optimizer.zero_grad()
         loss.backward()
@@ -93,8 +26,8 @@ def train_epoch(model, train_iter, optimizer, criterion, wall_timer):
     model.train()
     pbar = tqdm(train_iter)
     total_loss = 0
-    samples_per_sec = TimeMeter()
-    time_per_batch = TimeMeter()
+    samples_per_sec = misc.TimeMeter()
+    time_per_batch = misc.TimeMeter()
     for batch in pbar:
         loss = compute_loss(model, batch, criterion, optimizer)
         pbar.set_postfix(loss=loss)
@@ -130,124 +63,21 @@ def validate(model, val_iter, criterion, wall_timer):
 
 
 def train(args):
-    src_field = Field(
-            batch_first=True,
-            include_lengths=True,
-            fix_length=None,
-            init_token='<BOS>',
-            eos_token='<EOS>',
-    )
-    tgt_field = Field(
-            batch_first=True,
-            include_lengths=True,
-            fix_length=None,
-            init_token='<BOS>',
-            eos_token='<EOS>',
-    )
-    src_lang, tgt_lang = args.dataset.split('-')
-    if args.token_type == 'word':
-        path_src = path_dst = pathlib.Path('truecased')
-        inp_vocab_size = out_vocab_size = 50000
-    elif args.token_type == 'word_bpe':
-        path_src = pathlib.Path('truecased')
-        path_dst = pathlib.Path('bpe')
-        inp_vocab_size = 50000
-        out_vocab_size = 16000  # inferred from the paper
-    else:
-        path_src = path_dst = pathlib.Path('bpe')
-        inp_vocab_size = out_vocab_size = 16000
-    path_field_pairs = list(zip((path_src, path_dst), (src_lang, tgt_lang)))
-    train_dataset = TranslationDataset(
-            args.dataset + '/',
-            exts=list(map(lambda x: str(x[0] / f'train.{args.dataset}.{x[1]}'), path_field_pairs)),
-            fields=(src_field, tgt_field),
-            filter_pred=filter_pred,
-    )
-    val_dataset = TranslationDataset(
-            args.dataset + '/',
-            exts=list(map(lambda x: str(x[0] / f'dev.{x[1]}'), path_field_pairs)),
-            fields=(src_field, tgt_field),
-            filter_pred=filter_pred,
-    )
-
-    random.seed(args.device_id)
-    torch.manual_seed(args.device_id)
+    misc.fix_seed()
     device = torch.device('cuda', args.device_id)
-    torch.cuda.set_device(device)
-    src_field.build_vocab(train_dataset, max_size=inp_vocab_size - 4)  # 4 special tokens are added automatically
-    tgt_field.build_vocab(train_dataset, max_size=out_vocab_size - 4)
-
-    train_iter = BucketIterator(
-            train_dataset,
-            batch_size=args.batch_size,
-            sort_key=lambda x: (len(x.src), len(x.trg)),
-            sort_within_batch=True,
-            # device=device,
-    )
-    val_iter = BucketIterator(
-            val_dataset,
-            batch_size=args.batch_size,
-            train=False,
-            sort_key=lambda x: (len(x.src), len(x.trg)),
-            sort_within_batch=True,
-            # device=device,
-    )
-    out_dim = out_vocab_size
-    if args.loss != 'xent':
-        # assign pretrained embeddings to trg_field
-        vectors = Vectors(name=args.emb_type + '.' + tgt_lang, cache=args.emb_dir)  # temporary path
-        mean = torch.zeros((vectors.dim,))
-        num = 0
-        for word, ind in vectors.stoi.items():
-            if tgt_field.vocab.stoi.get(word) is None:
-                mean += vectors.vectors[ind]
-                num += 1
-        mean /= num
-        tgt_field.vocab.set_vectors(
-                vectors.stoi,
-                vectors.vectors,
-                vectors.dim,
-                unk_init=MeanInit(mean))
-        tgt_field.vocab.vectors[tgt_field.vocab.stoi['<EOS>']] = torch.ones(vectors.dim)
-        if args.loss != 'l2':
-            tgt_field.vocab.vectors = nn.functional.normalize(tgt_field.vocab.vectors, p=2, dim=-1)
-        out_dim = vectors.dim
-    model = Model(1024, 512, out_dim, src_field, tgt_field, 0.3 if args.loss == 'xent' else 0.0, args.tied).to(device)
+    train_iter, val_iter, src_field, tgt_field = data.setup_fields_and_iters(args, train=True)
     if args.loss == 'xent':
-        criterion = nn.CrossEntropyLoss(ignore_index=tgt_field.vocab.stoi[tgt_field.pad_token]).to(device)
-    elif args.loss == 'l2':
-        criterion = losses.L2Loss(tgt_field, out_dim).to(device)
-    elif args.loss == 'cosine':
-        criterion = losses.CosineLoss(tgt_field, out_dim).to(device)
-    elif args.loss == 'maxmarg':
-        criterion = losses.MaxMarginLoss(tgt_field, out_dim).to(device)
-    elif args.loss == 'vmfapprox_paper':
-        criterion = losses.NLLvMFApproxPaper(tgt_field, out_dim, args.reg_1, args.reg_2).to(device)
-    elif args.loss == 'vmfapprox_fixed':
-        criterion = losses.NLLvMFApproxFixed(tgt_field, out_dim, args.reg_1, args.reg_2).to(device)
-    elif args.loss == 'vmf':
-        criterion = losses.NLLvMF(tgt_field, out_dim, args.reg_1, args.reg_2).to(device)
+        out_dim = len(tgt_field.vocab)
     else:
-        raise ValueError
+        data.load_tgt_vectors(args, tgt_field)
+        out_dim = tgt_field.vocab.vectors.size(1)
+    model = Model(1024, 512, out_dim, src_field, tgt_field,
+                  dropout=0.3 if args.loss == 'xent' else 0.0, tied=args.tied).to(device)
+    criterion = losses.get_loss(args, tgt_field).to(device)
     print('Starting training')
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    path = pathlib.Path('checkpoints') / args.dataset / args.token_type / args.loss
-    if args.loss != 'xent':
-        path /= args.emb_type
-    if args.tied:
-        path /= 'tied'
-    if args.loss in ['vmfapprox_paper', 'vmfapprox_fixed', 'vmf']:
-        path /= f'reg1{args.reg_1}_reg2{args.reg_2}'
+    path = misc.get_path(args)
     os.makedirs(path, exist_ok=True)
-    init_epoch = 0
-
-    dummy_src = torch.zeros((args.batch_size, 100), dtype=torch.long, device=device)
-    dummy_src[:, -1] = 3
-    dummy_src_lengths = torch.full((args.batch_size,), 100, dtype=torch.long, device=device)
-    dummy_dst = torch.zeros((args.batch_size, 100), dtype=torch.long, device=device)
-    dummy_dst[:, -1] = 3
-
-    train_dummy(model, criterion, optimizer, (dummy_src, dummy_src_lengths, dummy_dst))
 
     if os.path.exists(path / 'checkpoint_last.pt'):
         checkpoint = torch.load(path / 'checkpoint_last.pt')

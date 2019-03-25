@@ -5,13 +5,16 @@ import torch.nn as nn
 from torch.nn.functional import cosine_similarity, normalize
 
 
+class CrossEntropyLoss(nn.CrossEntropyLoss):
+    def __init__(self, tgt_field, args):
+        super().__init__(ignore_index=tgt_field.vocab.stoi[tgt_field.pad_token])
+
+
 class EmbeddingLoss(nn.Module):
-    def __init__(self, tgt_voc, emb_dim):
-        super(EmbeddingLoss, self).__init__()
-        self.tgt_embedding = nn.Embedding(len(tgt_voc.vocab),
-                                          emb_dim).from_pretrained(tgt_voc.vocab.vectors)
-        # self.tgt_voc = tgt_voc
-        self.pad_id = tgt_voc.vocab.stoi[tgt_voc.pad_token]
+    def __init__(self, tgt_field, args):
+        super().__init__()
+        self.tgt_embedding = nn.Embedding.from_pretrained(tgt_field.vocab.vectors)
+        self.pad_id = tgt_field.vocab.stoi[tgt_field.pad_token]
 
     def forward(self, preds, target):
         return 0
@@ -39,9 +42,6 @@ class CosineLoss(EmbeddingLoss):
 
 
 class MaxMarginLoss(EmbeddingLoss):
-    def __init__(self, tgt_voc, emb_dim):
-        super(MaxMarginLoss, self).__init__(tgt_voc, emb_dim)
-
     def forward(self, preds, target):
         target_norm = self.tgt_embedding(target)
         mask = target.ne(self.pad_id)  # batch x seq
@@ -63,11 +63,11 @@ class MaxMarginLoss(EmbeddingLoss):
 
 
 class NLLvMFLossBase(EmbeddingLoss):
-    def __init__(self, tgt_voc, emb_dim, reg_1=0, reg_2=1):
-        super(NLLvMFLossBase, self).__init__(tgt_voc, emb_dim)
-        self.reg_1 = reg_1
-        self.reg_2 = reg_2
-        self.emb_dim = emb_dim
+    def __init__(self, tgt_field, args):
+        super().__init__(tgt_field, args)
+        self.reg_1 = args.reg_1
+        self.reg_2 = args.reg_2
+        self.emb_dim = tgt_field.vocab.vectors.size(1)
 
     def forward(self, preds, target):
         target_norm = self.tgt_embedding(target)
@@ -122,3 +122,22 @@ class LogCMK(torch.autograd.Function):
         k = k.double().cpu().numpy()
         grads = -((scipy.special.ive(m / 2., k)) / (scipy.special.ive(m / 2. - 1, k)))
         return None, grad_output * torch.from_numpy(grads).to(grad_output.device).float()
+
+
+loss_registry = {
+        'xent': CrossEntropyLoss,
+        'l2': L2Loss,
+        'cosine': CosineLoss,
+        'maxmarg': MaxMarginLoss,
+        'vmfapprox_paper': NLLvMFApproxPaper,
+        'vmfapprox_fixed': NLLvMFApproxFixed,
+        'vmf': NLLvMF,
+}
+
+
+def get_available_losses():
+    return list(loss_registry.keys())
+
+
+def get_loss(args, tgt_field):
+    return loss_registry[args.loss](tgt_field, args)
