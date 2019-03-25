@@ -17,13 +17,10 @@ class EmbeddingLoss(nn.Module):
         self.pad_id = tgt_field.vocab.stoi[tgt_field.pad_token]
 
     def forward(self, preds, target):
-        return 0
+        raise NotImplementedError
 
 
 class L2Loss(EmbeddingLoss):
-    def __init__(self, tgt_voc, emb_dim):
-        super(L2Loss, self).__init__(tgt_voc, emb_dim)
-
     def forward(self, preds, target):
         target_embedded = self.tgt_embedding(target)
         mask = target.ne(self.pad_id)
@@ -31,9 +28,6 @@ class L2Loss(EmbeddingLoss):
 
 
 class CosineLoss(EmbeddingLoss):
-    def __init__(self, tgt_voc, emb_dim):
-        super(CosineLoss, self).__init__(tgt_voc, emb_dim)
-
     def forward(self, preds, target):
         target_embedded = self.tgt_embedding(target)
         mask = target.ne(self.pad_id)
@@ -84,7 +78,7 @@ class NLLvMFLossBase(EmbeddingLoss):
         z: Tensor of shape batch x seq
         return: Tensor of shape batch x seq
         """
-        pass
+        raise NotImplementedError
 
 
 class NLLvMFApproxPaper(NLLvMFLossBase):
