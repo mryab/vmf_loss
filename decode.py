@@ -99,7 +99,7 @@ def decode(args):
             tgt_field.vocab.vectors = nn.functional.normalize(tgt_field.vocab.vectors, p=2, dim=-1)
         out_dim = vectors.dim
     model = Model(1024, 512, out_dim, src_field, tgt_field,
-                  0.3 if args.loss == 'xent' else 0.0, tied=args.tied).to(device)
+                  dropout=0.3 if args.loss == 'xent' else 0.0, tied=args.tied).to(device)
 
     detokenizer = MosesDetokenizer(lang=tgt_lang)
     detruecaser = MosesDetruecaser()

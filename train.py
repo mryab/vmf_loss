@@ -85,7 +85,6 @@ def compute_loss(model, batch, criterion, optimizer=None):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        # torch.cuda.empty_cache()
     return loss.item()
 
 
@@ -255,10 +254,11 @@ def train(args):
         model.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optim'])
         init_epoch = checkpoint['epoch']
+        wall_timer = misc.StopwatchMeter(checkpoint['train_wall'])
         best_val_loss = checkpoint['best_val_loss']
-        wall_timer = StopwatchMeter(checkpoint['train_wall'])
     else:
-        wall_timer = StopwatchMeter()
+        init_epoch = 0
+        wall_timer = misc.StopwatchMeter()
         best_val_loss = validate(model, val_iter, criterion, wall_timer)
         for param in model.parameters():
             param.data.uniform_(-0.1, 0.1)

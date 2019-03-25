@@ -53,7 +53,7 @@ class MaxMarginLoss(EmbeddingLoss):
 
         cos_out_voc = out_norm.matmul(voc_norm.transpose(0, 1))  # batch x seq x voc
         maxvalues, jmax = torch.max(
-                cos_out_voc - target_norm.matmul(voc_norm.transpose(0, 1)), dim=2, keepdim=True)  # batch x seq x 1
+                cos_out_voc - target_norm.matmul(voc_norm.transpose(0, 1)), dim=2, keepdim=True)
 
         cos_target = cos_out_voc.gather(2, target.unsqueeze(2)).squeeze()
         max_cos_voc = cos_out_voc.gather(2, jmax).squeeze()  # batch x seq

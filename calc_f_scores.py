@@ -80,6 +80,7 @@ def decode(args):
             if args.token_type in ['bpe', 'word_bpe']:
                 words = words.replace('@@ ', '')
             cnt.update(words.split())
+
     words_by_group = {
             '1': [word for word, count in cnt.items() if count == 1],
             '2': [word for word, count in cnt.items() if count == 2],
@@ -118,7 +119,7 @@ def decode(args):
             tgt_field.vocab.vectors = nn.functional.normalize(tgt_field.vocab.vectors, p=2, dim=-1)
         out_dim = vectors.dim
     model = Model(1024, 512, out_dim, src_field, tgt_field,
-                  0.3 if args.loss == 'xent' else 0.0, tied=args.tied).to(device)
+                  dropout=0.3 if args.loss == 'xent' else 0.0, tied=args.tied).to(device)
     src_raw = []
     gt = []
     with open(pathlib.Path(args.dataset) / path_dst / f'test.{src_lang}') as test_file:

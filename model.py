@@ -123,6 +123,7 @@ class Model(nn.Module):
         return output
 
     def translate_greedy(self, src_tokens, src_lengths, max_len=100, loss_type='xent'):
+        # TODO use self.forward to reduce code duplication
         src_tokens = src_tokens.transpose(0, 1)
         enc_out, enc_h, enc_c = self.encoder(src_tokens, src_lengths)
         enc_mask = src_tokens.eq(self.pad_idx)
@@ -170,7 +171,6 @@ class Model(nn.Module):
         vecs = self.out_voc.vocab.vectors.to(device)
         if loss_type == 'l2':
             r_out = torch.norm(output_vecs, dim=1).unsqueeze(1) ** 2
-
             r_voc = torch.norm(vecs, dim=1).unsqueeze(0) ** 2
             r_scal_prod = 2 * output_vecs.matmul(vecs.transpose(0, 1))
             return r_out + r_voc - r_scal_prod

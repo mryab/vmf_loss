@@ -15,8 +15,8 @@ def main():
         with open(f'{dataset}/truecased/train.{dataset}.{src_lang}') as src_file, \
                 open(f'{dataset}/truecased/train.{dataset}.{dst_lang}') as dst_file, \
                 open(f'{dataset}/align/train.aligned') as align_file:
-            for line_src, line_dst, line_align in tqdm(zip(src_file, dst_file, align_file)):
-                line_src, line_dst, line_align = map(lambda x: x.strip().split(), (line_src, line_dst, line_align))
+            for line_triplet in tqdm(zip(src_file, dst_file, align_file)):
+                line_src, line_dst, line_align = map(lambda x: x.strip().split(), line_triplet)
                 for pair in line_align:
                     src_ind, dst_ind = pair.split('-')
                     src_to_dst[line_src[int(src_ind)]].update({line_dst[int(dst_ind)]: 1})
