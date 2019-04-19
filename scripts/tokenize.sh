@@ -8,7 +8,7 @@ declare -a lang_pairs=("de-en" "en-fr" "fr-en")
 
 for pair in ${lang_pairs[@]}; do
     mkdir -p ${pair}/tokenized
-    modir -p ${pair}/truecased
+    mkdir -p ${pair}/truecased
     src=$(echo ${pair}| cut -f1 -d'-')
     dst=$(echo ${pair}| cut -f2 -d'-')
     lang_list="$src $dst"
