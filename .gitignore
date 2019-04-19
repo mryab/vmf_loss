@@ -102,3 +102,14 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+w2v.*
+wmt-*
+fasttext.*
+corpus.*
+.vector_cache/
+*.ipynb
+checkpoints/
+de-en/
+en-fr/
+fr-en/

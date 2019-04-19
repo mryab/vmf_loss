@@ -11,13 +11,13 @@ def fix_seed():
 
 
 def get_path(args):
-    path = pathlib.Path('checkpoints') / args.dataset / args.token_type / args.loss
-    if args.loss != 'xent':
+    path = pathlib.Path("checkpoints") / args.dataset / args.token_type / args.loss
+    if args.loss != "xent":
         path /= args.emb_type
     if args.tied:
-        path /= 'tied'
-    if args.loss in ['vmfapprox_paper', 'vmfapprox_fixed', 'vmf']:
-        path /= f'reg1{args.reg_1}_reg2{args.reg_2}'
+        path /= "tied"
+    if args.loss in ["vmfapprox_paper", "vmfapprox_fixed", "vmf"]:
+        path /= f"reg1{args.reg_1}_reg2{args.reg_2}"
     return path
 
 

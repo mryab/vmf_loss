@@ -22,10 +22,11 @@ def main():
             iter=args.iter,
             size=300,
             workers=args.num_workers,
-            min_count=0,
+            # min_count=0,
     )
 
     model_corp_file.wv.save_word2vec_format(f'{args.model_type}.{args.lang}')
+    model_corp_file.save(f'{args.model_type}.{args.lang}.model')
 
 
 if __name__ == '__main__':
