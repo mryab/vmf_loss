@@ -30,7 +30,7 @@ def replace_unk(words, align, gt_words_for_sent, src_field, tgt_field, word_dict
 
 
 def get_postprocess_func(args, src_field, tgt_field, detruecase, detokenize, word_dict):
-    def postprocess_prediction(sent, alignment, gt_for_sent):
+    def postprocess_prediction(sent, aligned_src, alignment, gt_for_sent):
         words = [tgt_field.vocab.itos[token] for token in sent]
         if tgt_field.eos_token in words:
             cut_ind = words.index(tgt_field.eos_token)
@@ -41,7 +41,7 @@ def get_postprocess_func(args, src_field, tgt_field, detruecase, detokenize, wor
             align_cut = alignment[:cut_ind]
             gt_words_for_sent = [gt_for_sent[ind] for ind in align_cut]
             words = replace_unk(
-                words, align_cut, gt_words_for_sent, src_field, tgt_field, word_dict
+                words, aligned_src, gt_words_for_sent, src_field, tgt_field, word_dict
             )
         words = " ".join(words)
         if args.token_type in ["bpe", "word_bpe"]:
@@ -77,7 +77,10 @@ def translate_checkpoint(model, path, test_iter, args, src_raw, postprocess_pred
             ]
             for sent_num, (sent, align) in enumerate(zip(preds, words_for_alignments)):
                 words = postprocess_prediction(
-                    sent, align, src_raw[batch_num * args.batch_size + sent_num]
+                    sent,
+                    align,
+                    alignments[sent_num],
+                    src_raw[batch_num * args.batch_size + sent_num],
                 )
                 res.append(words)
     return res, checkpoint
