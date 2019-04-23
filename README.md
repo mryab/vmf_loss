@@ -8,6 +8,7 @@ This repository contains an unofficial implementation of the paper
   * Pytorch 1.0
   * torchtext 0.3.1
   * sacremoses 0.0.10
+  * sacrebleu 1.2.17
   * [fast-align](https://github.com/clab/fast_align) 
   
   
@@ -21,6 +22,13 @@ This repository contains an unofficial implementation of the paper
   bash scripts/bpeize.sh
 ```
 
+  (For cross-entropy training) Word alignment
+  
+```
+  bash scripts/align_data.sh
+  python3 dicts_from_alignment.py --datasets de-en,en-fr,fr-en
+```
+
   WMT data for embeddings
   
 ```
@@ -30,7 +38,7 @@ This repository contains an unofficial implementation of the paper
   
   ## Training
 ```
-  python3 train.py --dataset de-en --token_type word --loss vmf --emb-type w2v --tied --reg1 1e-3 --reg2 0.1
+  python3 train.py --dataset de-en --token-type word --loss vmf --emb-type w2v --tied --reg1 1e-3 --reg2 0.1
 ```
   
 ```
